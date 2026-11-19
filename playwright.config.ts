@@ -3,6 +3,7 @@ import { config } from './src/core/config';
 
 export default defineConfig({
   testDir: './tests',
+  globalSetup: './src/core/global-setup.ts',
   fullyParallel: true,
   forbidOnly: config.isCI,
   // Intentional lab failures are assertions, not flakiness: keep retries low and visible.
