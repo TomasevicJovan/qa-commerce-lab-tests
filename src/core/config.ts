@@ -1,0 +1,37 @@
+import { existsSync } from 'node:fs';
+
+// Node 24 reads .env natively, so no dotenv dependency is needed.
+if (existsSync('.env')) process.loadEnvFile('.env');
+
+const ALLOWED_ORIGINS = ['http://localhost:3000', 'http://127.0.0.1:3000'];
+
+function read(name: string, fallback: string): string {
+  const value = process.env[name]?.trim();
+  return value ? value : fallback;
+}
+
+function readNumber(name: string, fallback: number): number {
+  const raw = read(name, String(fallback));
+  const value = Number(raw);
+  if (!Number.isInteger(value) || value <= 0) {
+    throw new Error(`${name} must be a positive integer, got "${raw}"`);
+  }
+  return value;
+}
+
+const baseUrl = read('BASE_URL', 'http://localhost:3000').replace(/\/+$/, '');
+
+// The lab gateway rejects any other Host header with 403, so fail early with a clear message.
+if (!ALLOWED_ORIGINS.includes(baseUrl)) {
+  throw new Error(`BASE_URL must be one of ${ALLOWED_ORIGINS.join(', ')}; got "${baseUrl}"`);
+}
+
+export const config = {
+  baseUrl,
+  demoUser: {
+    email: read('DEMO_EMAIL', 'qa@example.com'),
+    password: read('DEMO_PASSWORD', 'Testing123!'),
+  },
+  orderTimeoutMs: readNumber('ORDER_TIMEOUT_MS', 15_000),
+  isCI: Boolean(process.env.CI),
+} as const;

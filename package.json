@@ -1,0 +1,24 @@
+{
+  "name": "qa-commerce-lab-tests",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Playwright + TypeScript UI, API and accessibility tests for qa-commerce-lab",
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "test": "playwright test",
+    "test:smoke": "playwright test --grep @smoke",
+    "test:regression": "playwright test --grep @regression",
+    "test:api": "playwright test --grep @api",
+    "test:headed": "playwright test --headed",
+    "report": "playwright show-report",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.63.0",
+    "@types/node": "^24.0.0",
+    "typescript": "^6.0.3"
+  }
+}
