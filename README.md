@@ -17,3 +17,9 @@ npm run report
 ```
 
 Requires Node.js 24. Optional settings live in `.env.example`.
+
+Tests that flip the lab's global scenario switches live in `tests/scenarios` and run alone, after the API and UI tests. To run a single file without them, add `--no-deps`:
+
+```sh
+npx playwright test tests/ui/catalog.spec.ts --no-deps
+```

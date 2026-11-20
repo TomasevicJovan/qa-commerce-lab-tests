@@ -85,3 +85,18 @@ export async function ensureStock(api: ApiClients, productId: string, quantity: 
     quantity,
   );
 }
+
+/**
+ * Asks the backend for its authoritative total without creating an order or touching stock.
+ * Checkout rejects a mismatching expectedTotal with 409 "Current total is N cents" before
+ * anything is saved, so a deliberately wrong total (1 cent) reveals the server's calculation.
+ */
+export async function quoteServerTotal(api: ApiClients, items: CartItem[], coupon = ''): Promise<number> {
+  await setCart(api, items);
+  const response = await api.orders.place(buildCheckout(1, { coupon }), newIdempotencyKey());
+  const body = (await response.json()) as { error: string };
+  expect(response.status(), `quote: ${body.error}`).toBe(409);
+  const match = /Current total is (\d+) cents/.exec(body.error);
+  expect(match, `unexpected 409 message: ${body.error}`).not.toBeNull();
+  return Number(match?.[1]);
+}

@@ -1,10 +1,25 @@
 import { test, expect } from '@core/fixtures';
 import { expectMatchesContract } from '@core/schema-validator';
-import type { LabStatus } from '@api/types';
+import type { LabConfig, LabStatus } from '@api/types';
 
 const SERVICES = ['broker', 'identity', 'catalog', 'orders', 'inventory', 'payments'];
 
-test.describe('Lab health', () => {
+const BASELINE: LabConfig = {
+  locatorMode: 'stable',
+  renderDelay: 0,
+  apiDelay: 0,
+  paymentMode: 'approve',
+  paymentDelay: 0,
+  pauseInventory: false,
+  pausePayments: false,
+  duplicateEvents: false,
+  stalePrice: false,
+  rateLimit: false,
+  sessionSeconds: 3600,
+};
+
+// Runs before the api and ui projects. If it fails, they are skipped instead of failing for unrelated reasons.
+test.describe('Preflight', () => {
   test('all backend services report healthy through the gateway', { tag: ['@smoke', '@api'] }, async ({ anonApi }) => {
     const response = await test.step('request lab status', () => anonApi.lab.status());
 
@@ -21,5 +36,9 @@ test.describe('Lab health', () => {
         expect.soft(service.status, `${service.service} status`).toBe('ok');
       }
     });
+  });
+
+  test('lab runs with baseline scenario settings', { tag: ['@smoke', '@api'] }, async ({ lab }) => {
+    expect(await lab.current()).toEqual(BASELINE);
   });
 });
