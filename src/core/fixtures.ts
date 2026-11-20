@@ -1,4 +1,4 @@
-import { test as base, expect } from '@playwright/test';
+import { test as base, expect, type Page } from '@playwright/test';
 import { createApiClients, type ApiClients } from '@api/index';
 import type { Credentials } from '@api/types';
 import { config } from '@core/config';
@@ -19,6 +19,12 @@ interface TestFixtures {
   createUser: (overrides?: Partial<Credentials>) => Promise<RegisteredUser>;
   /** Global lab switches; restored to baseline after the test if anything was changed. */
   lab: LabControls;
+  /**
+   * Browser page already signed in as the worker's customer.
+   * The storefront keeps its token in sessionStorage (not cookies), which storageState does not
+   * persist, so the API token is injected before the app boots instead of logging in through the UI.
+   */
+  signedInPage: Page;
 }
 
 export const test = base.extend<TestFixtures, WorkerFixtures>({
@@ -48,6 +54,16 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     const lab = new LabControls(request);
     await use(lab);
     if (lab.changed) await lab.reset();
+  },
+
+  signedInPage: async ({ page, workerUser }, use) => {
+    await page.addInitScript((token) => {
+      // Inject only once per tab, so a sign-out inside the test is not undone on the next navigation.
+      if (sessionStorage.getItem('qa-test-auth-injected')) return;
+      sessionStorage.setItem('qa-token', token);
+      sessionStorage.setItem('qa-test-auth-injected', '1');
+    }, workerUser.token);
+    await use(page);
   },
 });
 
