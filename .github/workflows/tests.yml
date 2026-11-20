@@ -5,6 +5,9 @@ on:
     branches: [main]
   pull_request:
   workflow_dispatch:
+  # Sent by qa-commerce-lab on every push to its main branch (.github/workflows/trigger-tests.yml there).
+  repository_dispatch:
+    types: [lab-updated]
   schedule:
     # Nightly run catches changes in qa-commerce-lab even when this repository does not change.
     - cron: '17 3 * * *'
@@ -30,6 +33,13 @@ jobs:
         with:
           repository: TomasevicJovan/qa-commerce-lab
           path: lab
+          # A lab-triggered run tests the exact lab commit that was pushed; other runs use the lab's latest main.
+          ref: ${{ github.event.client_payload.sha || '' }}
+
+      - name: Show the lab commit under test
+        working-directory: lab
+        run: |
+          git log -1 --format='Lab commit under test: %H %s'
 
       - name: Start the lab with fresh data
         working-directory: lab

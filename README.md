@@ -143,7 +143,7 @@ npm run reset                                                  # Node mode, with
 
 ## Continuous integration
 
-[`.github/workflows/tests.yml`](.github/workflows/tests.yml) runs on every push to `main`, on pull requests, manually and nightly. The nightly run catches lab changes even when this repository does not change. The workflow:
+[`.github/workflows/tests.yml`](.github/workflows/tests.yml) runs on every push to `main`, on pull requests, manually, nightly, and **whenever qa-commerce-lab is pushed**. A lab push sends a `repository_dispatch` event with its commit, so the suite tests exactly that version. The workflow:
 
 1. checks out this repository and the lab;
 2. starts the lab with Docker Compose and Kafka, with fresh data;
