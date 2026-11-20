@@ -9,6 +9,8 @@ const LAB_ISSUES = 'https://github.com/TomasevicJovan/qa-commerce-lab/issues';
 export const KNOWN_ISSUES = {
   checkoutCountryMissingGermany: `${LAB_ISSUES}/1`,
   cartUnknownProductReturns404: `${LAB_ISSUES}/2`,
+  mutedTextContrast: `${LAB_ISSUES}/3`,
+  bagButtonLabelMismatch: `${LAB_ISSUES}/4`,
 } as const;
 
 export const issue = (url: string) => ({ type: 'issue', description: url });
