@@ -38,6 +38,7 @@ export async function placeOrder(
   items: CartItem[],
   overrides: Partial<CheckoutRequest> = {},
 ): Promise<PlacedOrder> {
+  for (const item of items) await ensureStock(api, item.productId, item.quantity);
   await setCart(api, items);
   const lines = await authoritativeLines(api, items);
   const { total } = calculateTotals(lines, overrides.coupon ?? '');
@@ -68,4 +69,19 @@ export async function waitForTerminalOrder(api: ApiClients, orderId: string): Pr
 export async function availableStock(api: ApiClients, productId: string): Promise<number> {
   const inventory = (await (await api.inventory.get()).json()) as Record<string, number>;
   return inventory[productId] ?? 0;
+}
+
+export const RESET_HINT =
+  'The lab has no restock endpoint. Reset its data: "npm run reset" (Node mode, lab stopped) ' +
+  'or "docker compose down --volumes" followed by "docker compose up -d --wait" (Docker mode).';
+
+/**
+ * Completed orders consume seeded stock for good. Fails with a clear instruction instead of
+ * letting the order be rejected later for a reason that has nothing to do with the test.
+ */
+export async function ensureStock(api: ApiClients, productId: string, quantity: number): Promise<void> {
+  const available = await availableStock(api, productId);
+  expect(available, `Need ${quantity} unit(s) of ${productId}, lab has ${available}. ${RESET_HINT}`).toBeGreaterThanOrEqual(
+    quantity,
+  );
 }
