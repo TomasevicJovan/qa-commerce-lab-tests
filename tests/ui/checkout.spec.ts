@@ -5,13 +5,13 @@ import { calculateTotals, formatUsd } from '@core/pricing';
 import { KNOWN_ISSUES, issue } from '@core/known-issues';
 import type { LabEvent, Order, Payment } from '@api/types';
 import { OrdersPage, ShopPage } from '@pages/index';
+import { STOCK_OWNERS } from '@core/test-products';
 
 test.describe('Bag and checkout', () => {
   test('customer checks out in the browser and the order is confirmed end to end', { tag: ['@smoke'] }, async ({ signedInPage: page, api, lab }) => {
     const shop = new ShopPage(page);
     const orders = new OrdersPage(page);
-    // Still Ceramic Mug has the most seeded stock (20), so repeated local runs last longest.
-    const product = { id: 'p5', name: 'Still Ceramic Mug', price: 2_400 };
+    const product = STOCK_OWNERS.uiCheckout;
     const expected = calculateTotals([{ unitPrice: product.price, quantity: 1 }]);
 
     await ensureStock(api, product.id, 1);

@@ -1,11 +1,12 @@
 import { test, expect } from '@core/fixtures';
 import { availableStock, placeOrder, waitForTerminalOrder } from '@core/flows/order-flow';
 import type { Payment } from '@api/types';
+import { STOCK_OWNERS } from '@core/test-products';
 
 // CF-05: a failed payment must release the reserved stock exactly once (saga compensation).
 for (const paymentMode of ['decline', 'timeout'] as const) {
   test(`payment ${paymentMode} cancels the order and returns the reserved stock`, { tag: ['@regression', '@api'] }, async ({ api, lab }) => {
-    const productId = 'p1';
+    const productId = STOCK_OWNERS.paymentFailure.id;
     await lab.set({ paymentMode });
     const stockBefore = await availableStock(api, productId);
 

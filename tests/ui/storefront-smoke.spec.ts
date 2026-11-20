@@ -1,4 +1,5 @@
 import { test, expect } from '@core/fixtures';
+import { ensureStock } from '@core/flows/order-flow';
 import { LabPage, ShopPage } from '@pages/index';
 
 test.describe('Storefront smoke', () => {
@@ -6,6 +7,8 @@ test.describe('Storefront smoke', () => {
     const shop = new ShopPage(signedInPage);
 
     await test.step('start from an empty bag', async () => {
+      // A sold-out product renders a disabled button, so check stock first for a clear failure message.
+      await ensureStock(api, 'p2', 1);
       expect((await api.cart.clear()).status()).toBe(200);
       await shop.goto();
       await expect(shop.header.accountButton).toHaveText(`${workerUser.name} · Sign out`);

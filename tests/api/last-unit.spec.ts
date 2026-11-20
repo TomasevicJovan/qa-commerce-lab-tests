@@ -2,9 +2,10 @@ import { test, expect } from '@core/fixtures';
 import { createApiClients } from '@api/index';
 import { availableStock, placeOrder, waitForTerminalOrder } from '@core/flows/order-flow';
 import type { Payment } from '@api/types';
+import { STOCK_OWNERS } from '@core/test-products';
 
 // Pocket Mini Speaker is seeded with exactly one unit (docs/CHALLENGES.md, EVT-01).
-const LAST_UNIT_PRODUCT = 'p6';
+const LAST_UNIT_PRODUCT = STOCK_OWNERS.lastUnitRace.id;
 
 test.describe('Stock competition', () => {
   test('two customers race for the last unit: exactly one wins and stock never goes negative', { tag: ['@regression', '@api'] }, async ({ anonApi, createUser, request }) => {

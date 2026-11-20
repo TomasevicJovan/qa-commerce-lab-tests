@@ -1,10 +1,11 @@
 import { test, expect } from '@core/fixtures';
 import { availableStock, placeOrder, waitForTerminalOrder } from '@core/flows/order-flow';
 import type { Order } from '@api/types';
+import { STOCK_OWNERS } from '@core/test-products';
 
 // CF-08: a paused consumer delays processing but loses nothing; resuming drains the backlog.
 test('orders wait while inventory is paused and complete after it resumes', { tag: ['@regression', '@api'] }, async ({ api, lab }) => {
-  const productId = 'p2';
+  const productId = STOCK_OWNERS.consumerOutage.id;
   await lab.set({ pauseInventory: true });
   const stockBefore = await availableStock(api, productId);
 

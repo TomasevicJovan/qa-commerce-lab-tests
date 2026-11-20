@@ -2,10 +2,11 @@ import { test, expect } from '@core/fixtures';
 import { expectMatchesContract } from '@core/schema-validator';
 import { availableStock, placeOrder, waitForTerminalOrder } from '@core/flows/order-flow';
 import type { Order } from '@api/types';
+import { STOCK_OWNERS } from '@core/test-products';
 
 test.describe('Checkout idempotency', () => {
   test('replaying the exact request returns the original order without a second charge', { tag: ['@regression', '@api'] }, async ({ api }) => {
-    const productId = 'p5';
+    const productId = STOCK_OWNERS.idempotencyReplay.id;
     const stockBefore = await availableStock(api, productId);
     const ordersBefore = ((await (await api.orders.list()).json()) as Order[]).length;
 
@@ -27,7 +28,7 @@ test.describe('Checkout idempotency', () => {
   });
 
   test('reusing a key with a different request is rejected', { tag: ['@regression', '@api'] }, async ({ api }) => {
-    const placed = await placeOrder(api, [{ productId: 'p1', quantity: 1 }]);
+    const placed = await placeOrder(api, [{ productId: STOCK_OWNERS.idempotencyConflict.id, quantity: 1 }]);
     const ordersAfterFirst = ((await (await api.orders.list()).json()) as Order[]).length;
 
     const changed = { ...placed.body, address: { ...placed.body.address, name: 'Someone Else' } };

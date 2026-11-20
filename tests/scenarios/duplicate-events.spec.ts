@@ -1,10 +1,11 @@
 import { test, expect } from '@core/fixtures';
 import { availableStock, placeOrder, waitForTerminalOrder } from '@core/flows/order-flow';
 import type { LabStatus, Payment } from '@api/types';
+import { STOCK_OWNERS } from '@core/test-products';
 
 // EVT-03: at-least-once delivery must still produce exactly-once business effects.
 test('duplicate event deliveries charge once and deduct stock once', { tag: ['@regression', '@api'] }, async ({ api, anonApi, lab }) => {
-  const productId = 'p8';
+  const productId = STOCK_OWNERS.duplicateEvents.id;
   await lab.set({ duplicateEvents: true });
   const stockBefore = await availableStock(api, productId);
 

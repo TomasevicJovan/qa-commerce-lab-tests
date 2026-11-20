@@ -1,8 +1,11 @@
 import { test, expect } from '@core/fixtures';
+import { ensureStock } from '@core/flows/order-flow';
 import { ShopPage } from '@pages/index';
 
 // UI-02/UI-03: in dynamic mode ids change on every rerender and test ids disappear.
 test('semantic locators keep working when ids are regenerated and test ids are removed', { tag: ['@regression'] }, async ({ signedInPage: page, api, lab }) => {
+  // A sold-out product renders a disabled button, so check stock first for a clear failure message.
+  await ensureStock(api, 'p2', 1);
   await lab.set({ locatorMode: 'dynamic', renderDelay: 1_500 });
   await api.cart.clear();
   const shop = new ShopPage(page);
