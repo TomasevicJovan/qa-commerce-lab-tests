@@ -2,6 +2,7 @@ import { test, expect } from '@core/fixtures';
 import type { Page } from '@playwright/test';
 import { HomePage, ProductListPage } from '@pages/index';
 import { CATALOG, CATEGORY_TREE, DEMO_NAME, SUBCATEGORIES } from '@core/test-data';
+import { KNOWN_ISSUES, issue } from '@core/known-issues';
 
 async function openMenu(page: Page): Promise<HomePage> {
   const home = new HomePage(page);
@@ -211,5 +212,14 @@ test.describe('All categories dropdown', { tag: '@categories-menu' }, () => {
         expect(await list.allSubcategoryLabels()).toEqual(Array(sub.count).fill(sub.name));
       });
     }
+  });
+
+  test('CATM-015 Category page opened by a direct link shows the subcategory chips', { tag: '@regression', annotation: issue(KNOWN_ISSUES.categoryPageDirectLinkHasNoSubcategoryChips) }, async ({ page }) => {
+    test.fail();
+    const list = new ProductListPage(page);
+
+    await list.goto({ category: 'Pets' });
+
+    await expect(list.subcategoryChips).toHaveText(['All Pets', 'Dogs 3', 'Cats 3'], { timeout: 3_000 });
   });
 });

@@ -10,7 +10,7 @@ Status: all test cases for the current version of the shop are planned; automati
 |---|---|---|---:|---:|---:|---:|---:|---:|
 | Registration and sign-in | `@auth` | High | 26 | 10 | 36 | 5 | 16 | 0 |
 | Search | `@search` | Medium | 14 | 7 | 21 | 2 | 2 | 0 |
-| All categories dropdown | `@categories-menu` | Medium | 14 | 4 | 18 | 2 | 5 | 0 |
+| All categories dropdown | `@categories-menu` | Medium | 15 | 4 | 19 | 2 | 5 | 0 |
 | Black Friday, Free shipping, popular links | `@navigation` | Medium | 12 | 4 | 16 | 3 | 7 | 0 |
 | Promotion bar | `@promo` | Low | 10 | 0 | 10 | 1 | 0 | 0 |
 | Home page product rows | `@home` | Low | 13 | 2 | 15 | 1 | 2 | 0 |
@@ -24,7 +24,7 @@ Status: all test cases for the current version of the shop are planned; automati
 | Orders, order page, payment messages | `@orders` | High | 21 | 11 | 32 | 4 | 18 | 0 |
 | Help pages and footer | `@help` | Low | 15 | 2 | 17 | 1 | 1 | 0 |
 | End-to-end flows | `@e2e` | High | 8 | – | 8 | 2 | 8 | 0 |
-| **Total** | | | **232** | **93** | **325** | **37** | **130** | **0** |
+| **Total** | | | **233** | **93** | **326** | **37** | **130** | **0** |
 
 Data-driven cases are counted once; they run once per data row (for example every category or every approved card).
 
@@ -68,5 +68,6 @@ Rules without an API mark exist only in the browser, so they are tested only the
 
 | Defect | Case | Summary | Status |
 |---|---|---|---|
-| #1 | CHK-012 | Country list is missing Germany | Open, test marked as expected to fail |
-| #2 | CART-033 | Unknown product in the cart returns 404 instead of 422 | Open, test marked as expected to fail |
+| [#1](https://github.com/TomasevicJovan/qa-commerce-lab/issues/1) | CATM-015 | Category page opened by a direct link has no subcategory chips | Open, test marked as expected to fail |
+| [#2](https://github.com/TomasevicJovan/qa-commerce-lab/issues/2) | CHK-012 | Country list is missing Germany | Open, test marked as expected to fail |
+| [#3](https://github.com/TomasevicJovan/qa-commerce-lab/issues/3) | CART-033 | Unknown product in the cart returns 404 instead of 422 | Open, test marked as expected to fail |
