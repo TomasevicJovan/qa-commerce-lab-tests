@@ -51,14 +51,24 @@ export class ProductListPage extends BasePage {
 
   /** Names of all products across every page, following Next until the last page. */
   async allProductNames(): Promise<string[]> {
-    const names: string[] = [...(await this.grid.productNames())];
+    return this.collectAcrossPages(() => this.grid.productNames());
+  }
+
+  /** Subcategory label of every product card across every page, in card order. */
+  async allSubcategoryLabels(): Promise<string[]> {
+    return this.collectAcrossPages(async () => (await this.grid.cards.locator('a.category').allTextContents()).map((t) => t.trim()));
+  }
+
+  /** Runs `read` on the current page and on every following page, joining the results. */
+  async collectAcrossPages<T>(read: () => Promise<T[]>): Promise<T[]> {
+    const values: T[] = [...(await read())];
     while ((await this.nextPage.count()) && !(await this.nextPage.getAttribute('aria-disabled'))) {
       const indicator = await this.pageIndicator.textContent();
       await this.nextPage.click();
       await expect(this.pageIndicator).not.toHaveText(indicator ?? '');
       await this.waitForProducts();
-      names.push(...(await this.grid.productNames()));
+      values.push(...(await read()));
     }
-    return names;
+    return values;
   }
 }
