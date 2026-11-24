@@ -7,7 +7,7 @@ export { AuthDialog } from './components/auth-dialog';
 export { BagDialog } from './components/bag-dialog';
 export { Totals } from './components/totals';
 export { ProductGrid } from './components/product-grid';
-export { HomePage } from './home-page';
+export { HomePage, type ShelfId } from './home-page';
 export { ProductListPage } from './product-list-page';
 export { CategoriesPage } from './categories-page';
 export { WishlistPage } from './wishlist-page';
