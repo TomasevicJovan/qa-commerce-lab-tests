@@ -19,13 +19,22 @@ export interface Credentials {
   password: string;
 }
 
-export type Category = 'Audio' | 'Workspace' | 'Travel' | 'Home';
+/** Error body of every 4xx response. `field` names the invalid input when one field caused it. */
+export interface ApiError {
+  error: string;
+  field?: string;
+}
 
 export interface Product {
   id: string;
   name: string;
-  category: Category;
+  category: string;
+  subcategory: string;
   price: number;
+  compareAtPrice: number | null;
+  deal: 'black-friday' | null;
+  freeShipping: boolean;
+  popularity: number;
   stock: number;
   icon: string;
   color: string;
@@ -39,12 +48,29 @@ export interface ProductPage {
   limit: number;
 }
 
+export type ProductSort = 'price' | 'price-desc' | 'popular';
+
 export interface ProductQuery {
   q?: string;
   category?: string;
-  sort?: 'price';
+  subcategory?: string;
+  deal?: string;
+  freeShipping?: string | boolean;
+  sort?: ProductSort | string;
   page?: number | string;
   limit?: number | string;
+}
+
+export interface SubcategorySummary {
+  name: string;
+  popular: boolean;
+  productCount: number;
+}
+
+export interface CategorySummary {
+  name: string;
+  productCount: number;
+  subcategories: SubcategorySummary[];
 }
 
 export type Inventory = Record<string, number>;
@@ -52,6 +78,33 @@ export type Inventory = Record<string, number>;
 export interface CartItem {
   productId: string;
   quantity: number;
+}
+
+export interface WishlistItem {
+  productId: string;
+  addedAt: string;
+}
+
+export type CardBrand = 'visa' | 'mastercard' | 'amex';
+
+/** Card details as typed by the customer. Never stored or returned by the lab. */
+export interface NewCard {
+  holder: string;
+  number: string;
+  expiry: string;
+  cvc: string;
+}
+
+/** A saved card as returned by GET /cards: never the full number or the security code. */
+export interface SavedCard {
+  id: string;
+  holder: string;
+  brand: CardBrand;
+  last4: string;
+  expMonth: number;
+  expYear: number;
+  expired: boolean;
+  createdAt: string;
 }
 
 export interface Address {
@@ -62,11 +115,14 @@ export interface Address {
   country: string;
 }
 
-export type PaymentMethod = 'test-card' | 'test-wallet';
+export type PaymentMethod = 'card' | 'test-wallet';
 
 export interface CheckoutRequest {
   address: Address;
   paymentMethod: PaymentMethod;
+  savedCardId?: string;
+  card?: NewCard;
+  saveCard?: boolean;
   coupon?: string;
   expectedTotal: number;
 }
@@ -78,6 +134,14 @@ export const TERMINAL_STATUSES: readonly OrderStatus[] = ['confirmed', 'rejected
 export interface OrderLine extends CartItem {
   name: string;
   unitPrice: number;
+  freeShipping: boolean;
+}
+
+export interface OrderPayment {
+  method: PaymentMethod;
+  brand?: CardBrand;
+  last4?: string;
+  savedCardId?: string;
 }
 
 export interface Order {
@@ -86,8 +150,11 @@ export interface Order {
   items: OrderLine[];
   address: Address;
   paymentMethod: PaymentMethod;
+  payment: OrderPayment;
   coupon: string;
   subtotal: number;
+  couponDiscount: number;
+  paymentDiscount: number;
   discount: number;
   shipping: number;
   total: number;
@@ -101,6 +168,9 @@ export interface Order {
 export interface Payment {
   id?: string;
   orderId: string;
+  method?: PaymentMethod;
+  brand?: CardBrand;
+  last4?: string;
   amount?: number;
   status: 'pending' | 'approved' | 'failed';
   reason?: string | null;

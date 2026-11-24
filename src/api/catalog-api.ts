@@ -14,4 +14,9 @@ export class CatalogApi extends BaseApi {
   get(productId: string) {
     return this.request.get(`/api/products/${encodeURIComponent(productId)}`);
   }
+
+  /** Category tree with product counts. */
+  categories() {
+    return this.request.get('/api/products/categories');
+  }
 }

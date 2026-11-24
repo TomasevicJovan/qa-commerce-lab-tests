@@ -1,53 +1,83 @@
-import { test as base, expect, type Page } from '@playwright/test';
+import { test as base, expect, type APIRequestContext, type Page } from '@playwright/test';
+import { AuthApi } from '@api/auth-api';
 import { createApiClients, type ApiClients } from '@api/index';
-import type { Credentials } from '@api/types';
+import type { Credentials, NewCard, SavedCard, Session } from '@api/types';
 import { config } from '@core/config';
 import { registerUser, type RegisteredUser } from '@core/factories/user-factory';
+import { buildCard } from '@core/factories/checkout-factory';
 import { LabControls } from '@core/lab-controls';
-
-interface WorkerFixtures {
-  /** One customer per worker, registered once through the API. Parallel workers never share a cart. */
-  workerUser: RegisteredUser;
-}
+import type { TestCard } from '@core/test-data';
 
 interface TestFixtures {
-  /** API clients authenticated as the worker's customer. */
+  /** A new customer for every test, so bags, wishlists and saved cards never mix. */
+  customer: RegisteredUser;
+  /** API clients authenticated as the test's customer. */
   api: ApiClients;
-  /** API clients without a token, for public endpoints and auth negatives. */
+  /** API clients without a token, for public endpoints and signed-out negatives. */
   anonApi: ApiClients;
+  /** API clients of the demo account. Its seeded saved cards are only read, never changed. */
+  demoApi: ApiClients;
   /** Registers extra customers inside a test, e.g. for ownership checks. */
   createUser: (overrides?: Partial<Credentials>) => Promise<RegisteredUser>;
+  /** Saves cards for the test's customer and returns them as the API lists them. */
+  saveCards: (...cards: (TestCard | NewCard)[]) => Promise<SavedCard[]>;
   /** Global lab switches; restored to baseline after the test if anything was changed. */
   lab: LabControls;
-  /**
-   * Browser page already signed in as the worker's customer.
-   * The storefront keeps its token in sessionStorage (not cookies), which storageState does not
-   * persist, so the API token is injected before the app boots instead of logging in through the UI.
-   */
+  /** Browser page signed in as the test's customer. */
   signedInPage: Page;
+  /** Browser page signed in as the demo account. */
+  demoPage: Page;
 }
 
-export const test = base.extend<TestFixtures, WorkerFixtures>({
-  workerUser: [
-    async ({ playwright }, use) => {
-      const request = await playwright.request.newContext({ baseURL: config.baseUrl });
-      const user = await registerUser(request);
-      await request.dispose();
-      await use(user);
-    },
-    { scope: 'worker' },
-  ],
+/**
+ * The storefront keeps its token in sessionStorage (not cookies), which storageState does not
+ * persist, so the API token is injected before the app boots instead of signing in through the UI.
+ */
+async function signIn(page: Page, token: string): Promise<void> {
+  await page.addInitScript((value) => {
+    // Inject only once per tab, so a sign-out inside the test is not undone on the next navigation.
+    if (sessionStorage.getItem('qa-test-auth-injected')) return;
+    sessionStorage.setItem('qa-token', value);
+    sessionStorage.setItem('qa-test-auth-injected', '1');
+  }, token);
+}
 
-  api: async ({ request, workerUser }, use) => {
-    await use(createApiClients(request, workerUser.token));
+async function demoToken(request: APIRequestContext): Promise<string> {
+  const response = await new AuthApi(request).login(config.demoUser);
+  expect(response.status(), 'demo account sign-in').toBe(200);
+  return ((await response.json()) as Session).token;
+}
+
+export const test = base.extend<TestFixtures>({
+  customer: async ({ request }, use) => {
+    await use(await registerUser(request));
+  },
+
+  api: async ({ request, customer }, use) => {
+    await use(createApiClients(request, customer.token));
   },
 
   anonApi: async ({ request }, use) => {
     await use(createApiClients(request));
   },
 
+  demoApi: async ({ request }, use) => {
+    await use(createApiClients(request, await demoToken(request)));
+  },
+
   createUser: async ({ request }, use) => {
     await use((overrides) => registerUser(request, overrides));
+  },
+
+  saveCards: async ({ api }, use) => {
+    await use(async (...cards) => {
+      for (const card of cards) {
+        const body = 'digits' in card ? buildCard(card) : card;
+        const response = await api.cards.save(body);
+        expect([200, 201], `save card: ${await response.text()}`).toContain(response.status());
+      }
+      return (await (await api.cards.list()).json()) as SavedCard[];
+    });
   },
 
   lab: async ({ request }, use) => {
@@ -56,13 +86,13 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     if (lab.changed) await lab.reset();
   },
 
-  signedInPage: async ({ page, workerUser }, use) => {
-    await page.addInitScript((token) => {
-      // Inject only once per tab, so a sign-out inside the test is not undone on the next navigation.
-      if (sessionStorage.getItem('qa-test-auth-injected')) return;
-      sessionStorage.setItem('qa-token', token);
-      sessionStorage.setItem('qa-test-auth-injected', '1');
-    }, workerUser.token);
+  signedInPage: async ({ page, customer }, use) => {
+    await signIn(page, customer.token);
+    await use(page);
+  },
+
+  demoPage: async ({ page, request }, use) => {
+    await signIn(page, await demoToken(request));
     await use(page);
   },
 });
