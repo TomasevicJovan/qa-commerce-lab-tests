@@ -10,6 +10,7 @@ export const KNOWN_ISSUES = {
   categoryPageDirectLinkHasNoSubcategoryChips: `${LAB_ISSUES}/1`,
   checkoutCountryMissingGermany: `${LAB_ISSUES}/2`,
   cartUnknownProductReturns404: `${LAB_ISSUES}/3`,
+  categoryIconMissingForGarden: `${LAB_ISSUES}/4`,
 } as const;
 
 export const issue = (url: string) => ({ type: 'issue', description: url });
