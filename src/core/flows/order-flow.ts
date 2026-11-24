@@ -131,3 +131,18 @@ export async function quoteServerTotal(api: ApiClients, items: CartItem[], overr
   expect(match, `unexpected 409 message: ${body.error}`).not.toBeNull();
   return Number(match?.[1]);
 }
+
+/**
+ * Buys units with a separate customer until only `left` units remain. Used to set up
+ * "last unit" races without depending on the seed stock of one product.
+ */
+export async function drainStockTo(api: ApiClients, buyer: ApiClients, productId: string, left: number): Promise<void> {
+  let available = await availableStock(api, productId);
+  expect(available, `Need at least ${left} unit(s) of ${productId}, lab has ${available}. ${RESET_HINT}`).toBeGreaterThanOrEqual(left);
+  while (available > left) {
+    const quantity = Math.min(10, available - left);
+    const { order } = await placeOrder(buyer, [{ productId, quantity }], { paymentMethod: 'test-wallet' });
+    expect((await waitForTerminalOrder(buyer, order.id)).status).toBe('confirmed');
+    available = await availableStock(api, productId);
+  }
+}
