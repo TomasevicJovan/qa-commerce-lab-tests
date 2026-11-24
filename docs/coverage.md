@@ -1,0 +1,72 @@
+# Coverage
+
+Planned test cases per feature and how many are automated. The **Automated** column is updated as features are implemented.
+
+Status: all test cases for the current version of the shop are planned; automation is starting. The previous tests covered an older version of the shop and are being rewritten.
+
+## By feature
+
+| Feature | Tag | Risk | UI | API | Total | Smoke | P1 | Automated |
+|---|---|---|---:|---:|---:|---:|---:|---:|
+| Registration and sign-in | `@auth` | High | 26 | 10 | 36 | 5 | 16 | 0 |
+| Search | `@search` | Medium | 14 | 7 | 21 | 2 | 2 | 0 |
+| All categories dropdown | `@categories-menu` | Medium | 14 | 4 | 18 | 2 | 5 | 0 |
+| Black Friday, Free shipping, popular links | `@navigation` | Medium | 12 | 4 | 16 | 3 | 7 | 0 |
+| Promotion bar | `@promo` | Low | 10 | 0 | 10 | 1 | 0 | 0 |
+| Home page product rows | `@home` | Low | 13 | 2 | 15 | 1 | 2 | 0 |
+| All categories page | `@categories-page` | Low | 7 | 0 | 7 | 1 | 1 | 0 |
+| Product list and product card | `@product-list` | Medium | 17 | 4 | 21 | 2 | 7 | 0 |
+| Cart | `@cart` | Medium | 16 | 6 | 22 | 4 | 13 | 0 |
+| Wishlist | `@wishlist` | Medium | 12 | 7 | 19 | 2 | 6 | 0 |
+| Checkout and card payments | `@checkout` | High | 34 | 12 | 46 | 3 | 25 | 0 |
+| Saved cards | `@saved-cards` | High | 8 | 6 | 14 | 2 | 9 | 0 |
+| Pricing | `@pricing` | High | 5 | 18 | 23 | 2 | 10 | 0 |
+| Orders, order page, payment messages | `@orders` | High | 21 | 11 | 32 | 4 | 18 | 0 |
+| Help pages and footer | `@help` | Low | 15 | 2 | 17 | 1 | 1 | 0 |
+| End-to-end flows | `@e2e` | High | 8 | – | 8 | 2 | 8 | 0 |
+| **Total** | | | **232** | **93** | **325** | **37** | **130** | **0** |
+
+Data-driven cases are counted once; they run once per data row (for example every category or every approved card).
+
+## By business rule
+
+Every rule in the shop's [business rules](https://github.com/TomasevicJovan/qa-commerce-lab/blob/main/docs/BUSINESS.md) and where it is tested.
+
+| Rule | Covered by | UI | API |
+|---|---|:---:|:---:|
+| CF-01 Create an account, sign in, session timeout | Registration and sign-in, E2E-01, E2E-07 | ✓ | ✓ |
+| CF-02 Browse products and fill the bag | Cart, Product list | ✓ | ✓ |
+| CF-03 Successful purchase | Checkout, Orders, all E2E | ✓ | ✓ |
+| CF-04 Two customers want the last item | Orders, E2E-06 | ✓ | ✓ |
+| CF-05 Payment declined or timed out: order cancelled, stock returned | Checkout, Orders, E2E-03 | ✓ | ✓ |
+| CF-06 Placing the same order twice creates only one | Checkout | ✓ | ✓ |
+| CF-07 Price changed during checkout, shipping limits | Checkout, Pricing | ✓ | ✓ |
+| CF-08 Order processing paused and resumed | Orders | ✓ | ✓ |
+| CF-09 Customers see only their own orders | Orders, Registration and sign-in | ✓ | ✓ |
+| CF-10 Wishlist | Wishlist, E2E-04 | ✓ | ✓ |
+| CF-11 Black Friday deals | Navigation links, Home rows, Pricing, E2E-02 | ✓ | ✓ |
+| CF-12 Free shipping products | Navigation links, Home rows, Pricing, E2E-05 | ✓ | ✓ |
+| CF-13 Mastercard discount | Checkout, Pricing, E2E-02 | ✓ | ✓ |
+| CF-14 Saved cards | Saved cards, Checkout, E2E-01 | ✓ | ✓ |
+| CF-15 Card payments, card validation, test cards | Checkout, Help (test cards page), E2E-03, E2E-08 | ✓ | ✓ |
+| Prices, discounts and shipping | Pricing, Cart | ✓ | ✓ |
+| Categories | All categories dropdown, All categories page | ✓ | ✓ |
+| SF-01 Header | Registration and sign-in | ✓ |  |
+| SF-02 Navigation and categories menu | All categories dropdown, Navigation links | ✓ |  |
+| SF-03 Promotion bar | Promotion bar | ✓ |  |
+| SF-04 Home page product rows | Home page product rows | ✓ | ✓ |
+| SF-05 Search and product list | Search, Product list, All categories dropdown | ✓ | ✓ |
+| SF-06 Shopping help pages | Help pages and footer | ✓ | ✓ |
+| SF-07 Footer | Help pages and footer | ✓ | ✓ |
+| SF-08 Checkout page | Checkout | ✓ |  |
+| SF-09 Notifications and the order page | Orders, Cart, Wishlist, Registration and sign-in | ✓ |  |
+| SF-10 All categories page | All categories page | ✓ |  |
+
+Rules without an API mark exist only in the browser, so they are tested only there.
+
+## Known defects
+
+| Defect | Case | Summary | Status |
+|---|---|---|---|
+| #1 | CHK-012 | Country list is missing Germany | Open, test marked as expected to fail |
+| #2 | CART-033 | Unknown product in the cart returns 404 instead of 422 | Open, test marked as expected to fail |
