@@ -28,13 +28,33 @@ jobs:
       - name: Check out tests
         uses: actions/checkout@v7
 
+      # Which lab version to test:
+      # 1. a run triggered by the lab tests the exact lab commit that was pushed;
+      # 2. a branch or pull request tests the lab branch with the same name, if it exists,
+      #    so new tests and the lab changes they need can be developed together;
+      # 3. everything else tests the lab's main branch.
+      - name: Choose the lab version to test
+        id: lab
+        env:
+          DISPATCH_SHA: ${{ github.event.client_payload.sha }}
+          BRANCH: ${{ github.head_ref || github.ref_name }}
+        run: |
+          if [ -n "$DISPATCH_SHA" ]; then
+            ref="$DISPATCH_SHA"
+          elif [ "$BRANCH" != "main" ] && git ls-remote --exit-code --heads https://github.com/TomasevicJovan/qa-commerce-lab.git "$BRANCH" > /dev/null; then
+            ref="$BRANCH"
+          else
+            ref="main"
+          fi
+          echo "ref=$ref" >> "$GITHUB_OUTPUT"
+          echo "Testing qa-commerce-lab at: $ref"
+
       - name: Check out qa-commerce-lab
         uses: actions/checkout@v7
         with:
           repository: TomasevicJovan/qa-commerce-lab
           path: lab
-          # A lab-triggered run tests the exact lab commit that was pushed; other runs use the lab's latest main.
-          ref: ${{ github.event.client_payload.sha || '' }}
+          ref: ${{ steps.lab.outputs.ref }}
 
       - name: Show the lab commit under test
         working-directory: lab
