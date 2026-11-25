@@ -68,7 +68,7 @@ Rules without an API mark exist only in the browser, so they are tested only the
 
 | Defect | Case | Summary | Status |
 |---|---|---|---|
-| [#1](https://github.com/TomasevicJovan/qa-commerce-lab/issues/1) | CATM-015 | Category page opened by a direct link has no subcategory chips | Open, test marked as expected to fail |
-| [#2](https://github.com/TomasevicJovan/qa-commerce-lab/issues/2) | CHK-012 | Country list is missing Germany | Open, test marked as expected to fail |
-| [#3](https://github.com/TomasevicJovan/qa-commerce-lab/issues/3) | CART-033 | Unknown product in the cart returns 404 instead of 422 | Open, test marked as expected to fail |
-| [#4](https://github.com/TomasevicJovan/qa-commerce-lab/issues/4) | CATP-003 | Garden card on the All categories page has no icon | Open, the Garden row is marked as expected to fail |
+| [#1](https://github.com/TomasevicJovan/qa-commerce-lab/issues/1) | CHK-012 | Country list is missing Germany | Open, test marked as expected to fail |
+| [#2](https://github.com/TomasevicJovan/qa-commerce-lab/issues/2) | CART-033 | Unknown product in the cart returns 404 instead of 422 | Open, test marked as expected to fail |
+| [#5](https://github.com/TomasevicJovan/qa-commerce-lab/issues/5) | CATM-015 | Category page opened by a direct link has no subcategory chips | Open, test marked as expected to fail |
+| [#6](https://github.com/TomasevicJovan/qa-commerce-lab/issues/6) | CATP-003 | Garden card on the All categories page has no icon | Open, the Garden row is marked as expected to fail |

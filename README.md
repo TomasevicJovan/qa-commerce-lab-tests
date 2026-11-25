@@ -58,10 +58,10 @@ The tests found four real defects in the shop. Each one is reported as an issue 
 
 | Issue | Test | Defect |
 |---|---|---|
-| [#1](https://github.com/TomasevicJovan/qa-commerce-lab/issues/1) | CATM-015 | A category page opened by a direct link has no subcategory chips |
-| [#2](https://github.com/TomasevicJovan/qa-commerce-lab/issues/2) | CHK-012 | The checkout country list is missing Germany |
-| [#3](https://github.com/TomasevicJovan/qa-commerce-lab/issues/3) | CART-033 | Saving a cart with an unknown product returns 404 instead of 422 |
-| [#4](https://github.com/TomasevicJovan/qa-commerce-lab/issues/4) | CATP-003 | The Garden card on the All categories page has no icon |
+| [#1](https://github.com/TomasevicJovan/qa-commerce-lab/issues/1) | CHK-012 | The checkout country list is missing Germany |
+| [#2](https://github.com/TomasevicJovan/qa-commerce-lab/issues/2) | CART-033 | Saving a cart with an unknown product returns 404 instead of 422 |
+| [#5](https://github.com/TomasevicJovan/qa-commerce-lab/issues/5) | CATM-015 | A category page opened by a direct link has no subcategory chips |
+| [#6](https://github.com/TomasevicJovan/qa-commerce-lab/issues/6) | CATP-003 | The Garden card on the All categories page has no icon |
 
 ## How the tests are built
 
@@ -138,6 +138,8 @@ CI always starts from fresh data.
 3. installs Node.js and Chromium, checks the types and runs the suite;
 4. prints the shop's logs if anything failed;
 5. uploads the HTML report and publishes it to [GitHub Pages](https://tomasevicjovan.github.io/qa-commerce-lab-tests/), also when tests fail.
+
+**One-time setup for the shop trigger.** The shop's workflow (`trigger-tests.yml`) starts this suite with a `repository_dispatch` event. It needs a fine-grained personal access token with access to this repository and **Contents: Read and write**, saved in the shop repository as the Actions secret `TESTS_REPO_TOKEN`. Without the secret, the trigger fails with a message pointing here.
 
 ## Limitations
 
