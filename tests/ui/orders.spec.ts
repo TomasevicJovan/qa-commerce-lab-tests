@@ -73,10 +73,6 @@ test.describe('Orders, order page and payment messages', { tag: '@orders' }, () 
 
       await expect(order.bannerFor('rejected')).toBeVisible(settle);
       await expect(order.banner).toHaveText('Order not completedA product in your order is out of stock. You were not charged.');
-      await checkout.notifications.expectShown('error', {
-        title: 'Order not completed',
-        message: `A product in your order is out of stock. Order ${shortIdFromUrl(page)} could not be completed and you were not charged.`,
-      });
     });
 
     test('ORD-005 Progress lists every status in order', { tag: '@regression' }, async ({ signedInPage: page, api }) => {
@@ -172,6 +168,28 @@ test.describe('Orders, order page and payment messages', { tag: '@orders' }, () 
 
       await expect(checkout.notifications.find('error', { title: 'Payment failed' })).toHaveText(
         `!Payment failedYour card was declined. Order ${shortId} was cancelled and you were not charged.×`,
+        settle,
+      );
+    });
+
+    test('ORD-023 Out of stock message', { tag: '@regression' }, async ({ signedInPage: page, api, request, createUser, saveCards }) => {
+      // Same race as ORD-004, on its own product so the two tests never share the last unit.
+      const lamp = { id: 'p15', name: 'Dome Pendant Lamp' };
+      const customerA = createApiClients(request, (await createUser()).token);
+      await drainStockTo(api, createApiClients(request, (await createUser()).token), lamp.id, 1);
+      await saveCards(CARDS.visa);
+      await setCart(api, [{ productId: lamp.id, quantity: 1 }]);
+      const checkout = new CheckoutPage(page);
+      await checkout.goto();
+      await checkout.waitForForm();
+      const { order: orderA } = await placeAndSettle(customerA, [{ productId: lamp.id, quantity: 1 }], pay.wallet());
+      expect(orderA.status).toBe('confirmed');
+
+      await checkout.placeOrder();
+
+      await expect(page).toHaveURL(/#order\//);
+      await expect(checkout.notifications.find('error', { title: 'Order not completed' })).toContainText(
+        `A product in your order is out of stock. Order ${shortIdFromUrl(page)} could not be completed and you were not charged.`,
         settle,
       );
     });
