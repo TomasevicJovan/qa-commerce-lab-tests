@@ -58,4 +58,8 @@ export class AuthDialog {
     await this.fillRegistration({ name, email, password, confirm });
     await this.createAccountButton.click();
   }
+
+  async close(): Promise<void> {
+    await this.root.press('Escape');
+  }
 }

@@ -1,5 +1,16 @@
 import type { Locator } from '@playwright/test';
 
+/** What a product card shows, read in one go for checks over many cards. */
+export interface CardFacts {
+  name: string;
+  price: string;
+  priceIsSale: boolean;
+  compare: string | null;
+  badge: string | null;
+  freeShipping: string | null;
+  subcategory: string;
+}
+
 /**
  * Product cards inside a container (a list, a home row, the wishlist).
  * Cards are found by their accessible name (product name), which works in both
@@ -12,6 +23,26 @@ export class ProductGrid {
   constructor(readonly root: Locator) {
     this.cards = root.getByRole('article');
     this.names = this.cards.getByRole('heading', { level: 3 });
+  }
+
+  /** Facts of every card currently shown, in order. */
+  facts(): Promise<CardFacts[]> {
+    return this.cards.evaluateAll((articles) =>
+      articles.map((a) => ({
+        name: a.querySelector('h3')?.textContent?.trim() ?? '',
+        price: a.querySelector('.price')?.textContent?.trim() ?? '',
+        priceIsSale: a.querySelector('.price')?.classList.contains('sale') ?? false,
+        compare: a.querySelector('.compare-price')?.textContent?.trim() ?? null,
+        badge: a.querySelector('.product-tag.deal')?.textContent?.trim() ?? null,
+        freeShipping: a.querySelector('.free-shipping')?.textContent?.trim() ?? null,
+        subcategory: a.querySelector('a.category')?.textContent?.trim() ?? '',
+      })),
+    );
+  }
+
+  /** The "Last one" / deal tag of a card. */
+  tag(name: string): Locator {
+    return this.card(name).locator('.product-tag');
   }
 
   card(name: string): Locator {

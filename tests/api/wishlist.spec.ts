@@ -1,6 +1,6 @@
 import { test, expect } from '@core/fixtures';
 import { expectMatchesContract } from '@core/schema-validator';
-import { PRODUCTS } from '@core/test-data';
+import { API_ERRORS, LIMITS, PRODUCTS, UNKNOWN_PRODUCT_ID, productId } from '@data/index';
 import type { ApiError, WishlistItem } from '@api/types';
 
 const { arcHeadphones, orbitLamp, loopKeyboard } = PRODUCTS;
@@ -48,20 +48,20 @@ test.describe('Wishlist', { tag: ['@wishlist', '@api'] }, () => {
   });
 
   test('WISH-024 Unknown product returns 404', { tag: '@regression' }, async ({ api }) => {
-    const response = await api.wishlist.add('does-not-exist');
+    const response = await api.wishlist.add(UNKNOWN_PRODUCT_ID);
 
     expect(response.status()).toBe(404);
-    expect(((await response.json()) as ApiError).error).toBe('Product not found');
+    expect(((await response.json()) as ApiError).error).toBe(API_ERRORS.catalog.productNotFound);
   });
 
-  test('WISH-025 51st product returns 422', { tag: '@regression' }, async ({ api }) => {
-    for (let i = 1; i <= 50; i++) expect((await api.wishlist.add(`p${i}`)).status()).toBe(200);
+  test(`WISH-025 Product number ${LIMITS.wishlistProducts + 1} returns 422`, { tag: '@regression' }, async ({ api }) => {
+    for (let i = 1; i <= LIMITS.wishlistProducts; i++) expect((await api.wishlist.add(productId(i))).status()).toBe(200);
 
-    const response = await api.wishlist.add('p51');
+    const response = await api.wishlist.add(productId(LIMITS.wishlistProducts + 1));
 
     expect(response.status()).toBe(422);
-    expect(((await response.json()) as ApiError).error).toBe('Wishlist can hold at most 50 products');
-    expect(await ids(await api.wishlist.get())).toHaveLength(50);
+    expect(((await response.json()) as ApiError).error).toBe(API_ERRORS.wishlist.full);
+    expect(await ids(await api.wishlist.get())).toHaveLength(LIMITS.wishlistProducts);
   });
 
   test('WISH-026 Wishlist without a token returns 401', { tag: '@regression' }, async ({ anonApi }) => {

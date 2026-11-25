@@ -30,6 +30,8 @@ export class CheckoutPage extends BasePage {
   readonly error = this.form.locator('#checkout-error');
   readonly placeOrderButton = this.form.locator('button.place-order');
   readonly emptyBag = this.main.getByText('Your bag is empty.');
+  readonly countryOptions = this.country.locator('option');
+  readonly sectionHeadings = this.form.locator('h2');
 
   async goto(): Promise<void> {
     await this.open('#checkout');
@@ -54,6 +56,18 @@ export class CheckoutPage extends BasePage {
 
   removeCardButton(label: string): Locator {
     return this.form.getByRole('button', { name: `Remove ${label}` });
+  }
+
+  /** Text of a saved card as listed: brand, last four digits, holder, expiry. */
+  savedCardLabel(last4: string): Locator {
+    return this.savedCard(last4).locator('label');
+  }
+
+  readonly savedCardsHeading = this.form.getByText('Saved cards', { exact: true });
+
+  /** The "−10%" mark next to a saved Mastercard. */
+  perk(last4: string): Locator {
+    return this.savedCard(last4).locator('.perk');
   }
 
   async fillAddress(address: Partial<Address>): Promise<void> {

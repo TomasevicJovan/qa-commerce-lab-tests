@@ -1,7 +1,9 @@
 import { test, expect } from '@core/fixtures';
 import type { Page } from '@playwright/test';
 import { CheckoutPage, HelpPage, HomePage, OrdersPage, ProductListPage } from '@pages/index';
-import { PRODUCTS, PROMOTIONS } from '@core/test-data';
+import { CATEGORY, HOME_TEXT, LIST_TEXT, PRODUCTS, PROMOTIONS, STOREFRONT_TIMING } from '@data/index';
+
+const ROTATION = STOREFRONT_TIMING.promoRotationMs;
 import { setCart } from '@core/flows/order-flow';
 
 /** Home page with a controlled clock, so the 5-second rotation is tested without real waiting. */
@@ -9,19 +11,19 @@ async function openWithClock(page: Page): Promise<HomePage> {
   const home = new HomePage(page);
   await page.clock.install();
   await home.goto();
-  await expect(home.promo.counter).toHaveText('1/4');
+  await expect(home.promo.counter).toHaveText(HOME_TEXT.promoCounter(1));
   return home;
 }
 
 /** Stops the rotation with Pause and moves the pointer away, so only clicks change the message. */
 async function pauseRotation(home: HomePage, page: Page): Promise<void> {
   await home.promo.pause.click();
-  await expect(home.promo.pause).toHaveText('Play');
+  await expect(home.promo.pause).toHaveText(HOME_TEXT.promoPlay);
   await page.mouse.move(0, 400);
 }
 
 async function expectMessage(home: HomePage, index: number): Promise<void> {
-  await expect(home.promo.counter).toHaveText(`${index + 1}/4`);
+  await expect(home.promo.counter).toHaveText(HOME_TEXT.promoCounter(index + 1));
   expect(await home.promo.text()).toBe(PROMOTIONS[index]);
 }
 
@@ -30,7 +32,7 @@ test.describe('Promotion bar', { tag: '@promo' }, () => {
     const home = new HomePage(page);
     await home.goto();
 
-    await expect(home.promo.counter).toHaveText('1/4');
+    await expect(home.promo.counter).toHaveText(HOME_TEXT.promoCounter(1));
     expect(await home.promo.text()).toBe(PROMOTIONS[0]);
   });
 
@@ -41,7 +43,7 @@ test.describe('Promotion bar', { tag: '@promo' }, () => {
 
       for (let i = 0; i < index; i++) await home.promo.next.click();
 
-      await expect(home.promo.counter).toHaveText(`${index + 1}/4`);
+      await expect(home.promo.counter).toHaveText(HOME_TEXT.promoCounter(index + 1));
       expect(await home.promo.text()).toBe(message);
     });
   }
@@ -85,14 +87,14 @@ test.describe('Promotion bar', { tag: '@promo' }, () => {
     await page.mouse.move(0, 400);
 
     // The timer started at page load, so first find the moment of the first change...
-    for (let waited = 0; (await home.promo.counter.textContent()) === '1/4'; waited += 100) {
-      expect(waited, 'first change within 5 seconds').toBeLessThanOrEqual(5_000);
+    for (let waited = 0; (await home.promo.counter.textContent()) === HOME_TEXT.promoCounter(1); waited += 100) {
+      expect(waited, 'first change within one rotation').toBeLessThanOrEqual(ROTATION);
       await page.clock.runFor(100);
     }
     await expectMessage(home, 1);
 
     // ...then the next change must come 5 seconds later, not earlier.
-    await page.clock.runFor(4_800);
+    await page.clock.runFor(ROTATION - 200);
     await expectMessage(home, 1);
     await page.clock.runFor(300);
     await expectMessage(home, 2);
@@ -102,11 +104,11 @@ test.describe('Promotion bar', { tag: '@promo' }, () => {
     const home = await openWithClock(page);
 
     await home.promo.root.hover();
-    await page.clock.runFor(7_000);
+    await page.clock.runFor(ROTATION + 2_000);
     await expectMessage(home, 0);
 
     await page.mouse.move(0, 400);
-    await page.clock.runFor(5_000); // any 5-second window holds exactly one tick of the timer
+    await page.clock.runFor(ROTATION); // any window of one rotation holds exactly one tick of the timer
     await expectMessage(home, 1);
   });
 
@@ -115,15 +117,15 @@ test.describe('Promotion bar', { tag: '@promo' }, () => {
 
     await home.promo.pause.click();
     await page.mouse.move(0, 400);
-    await page.clock.runFor(7_000);
-    await expect(home.promo.pause).toHaveText('Play');
+    await page.clock.runFor(ROTATION + 2_000);
+    await expect(home.promo.pause).toHaveText(HOME_TEXT.promoPlay);
     await expectMessage(home, 0);
 
     await home.promo.pause.click();
     await page.mouse.move(0, 400);
     await home.promo.pause.blur();
-    await page.clock.runFor(5_000); // any 5-second window holds exactly one tick of the timer
-    await expect(home.promo.pause).toHaveText('Pause');
+    await page.clock.runFor(ROTATION); // any window of one rotation holds exactly one tick of the timer
+    await expect(home.promo.pause).toHaveText(HOME_TEXT.promoPause);
     await expectMessage(home, 1);
   });
 
@@ -137,14 +139,14 @@ test.describe('Promotion bar', { tag: '@promo' }, () => {
     await home.promo.message.getByRole('link').click();
 
     await expect(page).toHaveURL(/#shop\?deal=black-friday$/);
-    await expect(list.heading).toHaveText('Black Friday deals');
+    await expect(list.heading).toHaveText(LIST_TEXT.blackFridayHeading);
   });
 
   test('PROMO-010 Bar is shown on every page', { tag: '@regression' }, async ({ signedInPage: page, api }) => {
     await setCart(api, [{ productId: PRODUCTS.stillMug.id, quantity: 1 }]);
     const pages = [
       () => new HomePage(page).goto(),
-      () => new ProductListPage(page).goto({ category: 'Pets' }),
+      () => new ProductListPage(page).goto({ category: CATEGORY.pets.name }),
       () => new CheckoutPage(page).goto(),
       () => new HelpPage(page).goto('delivery-and-payment'),
       () => new OrdersPage(page).goto(),

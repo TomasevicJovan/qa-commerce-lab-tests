@@ -1,15 +1,18 @@
 import { test, expect } from '@core/fixtures';
 import { ProductListPage } from '@pages/index';
-import { CATALOG, PRODUCTS } from '@core/test-data';
+import { CART_TEXT, CATALOG, CATEGORY, LIST_ORDER, LIST_TEXT, PRODUCTS, QUERY, SUBCATEGORY, pageSizes } from '@data/index';
 import { availableStock, drainStockTo } from '@core/flows/order-flow';
 import { formatUsd } from '@core/pricing';
 import { createApiClients } from '@api/index';
 
-const { arcHeadphones, orbitLamp, loopKeyboard, pulseController, novaChair, fieldBackpack, glowNightLight } = PRODUCTS;
-const LAST_PAGE = Math.ceil(CATALOG.totalProducts / CATALOG.pageSize); // 12
-// Products the stock checks own, so no other test changes their stock: Core Adjustable Dumbbells and Ridge Two-Person Tent.
-const DUMBBELLS = { id: 'p24', name: 'Core Adjustable Dumbbells' };
-const TENT = { id: 'p28', name: 'Ridge Two-Person Tent' };
+const { arcHeadphones, fieldBackpack } = PRODUCTS;
+const LAST_PAGE = pageSizes(CATALOG.totalProducts).length;
+const LOW_STOCK = 3;
+// Products the stock checks own, so no other test changes their stock.
+const DUMBBELLS = PRODUCTS.coreDumbbells;
+const TENT = PRODUCTS.ridgeTent;
+const { sort } = LIST_TEXT;
+const names = (products: readonly { name: string }[]) => products.map((p) => p.name);
 
 const ascending = (values: number[]) => values.every((v, i) => i === 0 || values[i - 1]! <= v);
 const descending = (values: number[]) => values.every((v, i) => i === 0 || values[i - 1]! >= v);
@@ -20,18 +23,18 @@ test.describe('Product list and product card', { tag: '@product-list' }, () => {
       const list = new ProductListPage(page);
       await list.goto();
 
-      await expect(list.sortSelect.locator('option:checked')).toHaveText('Featured');
-      expect((await list.grid.productNames()).slice(0, 3)).toEqual([arcHeadphones.name, orbitLamp.name, loopKeyboard.name]);
+      await expect(list.selectedSort).toHaveText(sort.featured);
+      expect((await list.grid.productNames()).slice(0, 3)).toEqual(names(LIST_ORDER.firstThree));
     });
 
     test('LIST-002 Price low to high', { tag: '@smoke' }, async ({ page }) => {
       const list = new ProductListPage(page);
       await list.goto();
 
-      await list.sortBy('Price: low to high');
+      await list.sortBy(sort.priceLowHigh);
 
       const prices = await list.grid.prices();
-      expect(prices[0]).toBe(900);
+      expect(prices[0]).toBe(LIST_ORDER.lowestPrice);
       expect(ascending(prices)).toBe(true);
       await list.nextPage.click();
       await list.waitForProducts();
@@ -44,32 +47,34 @@ test.describe('Product list and product card', { tag: '@product-list' }, () => {
       const list = new ProductListPage(page);
       await list.goto();
 
-      await list.sortBy('Price: high to low');
+      await list.sortBy(sort.priceHighLow);
 
       expect(descending(await list.grid.prices())).toBe(true);
-      expect((await list.grid.productNames())[0]).toBe(novaChair.name);
-      await expect(list.grid.price(novaChair.name)).toHaveText(formatUsd(novaChair.price));
+      expect((await list.grid.productNames())[0]).toBe(LIST_ORDER.mostExpensive.name);
+      await expect(list.grid.price(LIST_ORDER.mostExpensive.name)).toHaveText(formatUsd(LIST_ORDER.mostExpensive.price));
     });
 
     test('LIST-004 Most popular', { tag: '@regression' }, async ({ page }) => {
       const list = new ProductListPage(page);
       await list.goto();
 
-      await list.sortBy('Most popular');
+      await list.sortBy(sort.popular);
 
-      expect((await list.grid.productNames()).slice(0, 3)).toEqual([arcHeadphones.name, pulseController.name, 'Sense Smart Plug (2-pack)']);
+      expect((await list.grid.productNames()).slice(0, 3)).toEqual(names(LIST_ORDER.mostPopularThree));
     });
 
     test('LIST-005 Changing the sort returns to page 1 and keeps filters', { tag: '@regression' }, async ({ page }) => {
       const list = new ProductListPage(page);
-      await list.goto({ category: 'Electronics', page: 2 });
-      await expect(list.pageIndicator).toHaveText('Page 2 of 3');
+      const { electronics } = CATEGORY;
+      const pages = pageSizes(electronics.count).length;
+      await list.goto({ category: electronics.name, page: 2 });
+      await expect(list.pageIndicator).toHaveText(LIST_TEXT.pageIndicator(2, pages));
 
-      await list.sortBy('Price: low to high');
+      await list.sortBy(sort.priceLowHigh);
 
-      await expect(list.pageIndicator).toHaveText('Page 1 of 3');
-      await expect(list.filterChip('Electronics')).toBeVisible();
-      expect(page.url()).toContain('sort=price');
+      await expect(list.pageIndicator).toHaveText(LIST_TEXT.pageIndicator(1, pages));
+      await expect(list.filterChip(electronics.name)).toBeVisible();
+      expect(page.url()).toContain(`sort=${QUERY.sort.priceLowHigh}`);
       expect(page.url()).not.toContain('page=');
     });
   });
@@ -80,8 +85,8 @@ test.describe('Product list and product card', { tag: '@product-list' }, () => {
       await list.goto();
 
       await expect(list.grid.cards).toHaveCount(CATALOG.pageSize);
-      await expect(list.pageIndicator).toHaveText(`Page 1 of ${LAST_PAGE}`);
-      await expect(list.resultCount).toHaveText(`${CATALOG.totalProducts} products`);
+      await expect(list.pageIndicator).toHaveText(LIST_TEXT.pageIndicator(1, LAST_PAGE));
+      await expect(list.resultCount).toHaveText(LIST_TEXT.resultCount(CATALOG.totalProducts));
     });
 
     test('LIST-011 Next and Previous move between pages', { tag: '@regression' }, async ({ page }) => {
@@ -90,14 +95,14 @@ test.describe('Product list and product card', { tag: '@product-list' }, () => {
       const firstPage = await list.grid.productNames();
 
       await list.nextPage.click();
-      await expect(list.pageIndicator).toHaveText(`Page 2 of ${LAST_PAGE}`);
+      await expect(list.pageIndicator).toHaveText(LIST_TEXT.pageIndicator(2, LAST_PAGE));
       await list.waitForProducts();
       const secondPage = await list.grid.productNames();
       expect(secondPage).toHaveLength(8);
       for (const name of secondPage) expect(firstPage).not.toContain(name);
 
       await list.previousPage.click();
-      await expect(list.pageIndicator).toHaveText(`Page 1 of ${LAST_PAGE}`);
+      await expect(list.pageIndicator).toHaveText(LIST_TEXT.pageIndicator(1, LAST_PAGE));
       await list.waitForProducts();
       expect(await list.grid.productNames()).toEqual(firstPage);
     });
@@ -117,12 +122,12 @@ test.describe('Product list and product card', { tag: '@product-list' }, () => {
       const list = new ProductListPage(page);
       await list.goto({ page: LAST_PAGE });
 
-      expect(await list.grid.productNames()).toEqual([glowNightLight.name]);
+      expect(await list.grid.productNames()).toEqual([LIST_ORDER.last.name]);
     });
 
     test('LIST-014 Pagination is hidden when everything fits on one page', { tag: '@regression' }, async ({ page }) => {
       const list = new ProductListPage(page);
-      await list.goto({ category: 'Electronics', subcategory: 'Gaming' });
+      await list.goto({ category: SUBCATEGORY.gaming.category, subcategory: SUBCATEGORY.gaming.name });
 
       await expect(list.grid.cards).toHaveCount(4);
       await expect(list.previousPage).toHaveCount(0);
@@ -134,7 +139,7 @@ test.describe('Product list and product card', { tag: '@product-list' }, () => {
       const list = new ProductListPage(page);
       await list.goto({ page: 3 });
 
-      await expect(list.pageIndicator).toHaveText(`Page 3 of ${LAST_PAGE}`);
+      await expect(list.pageIndicator).toHaveText(LIST_TEXT.pageIndicator(3, LAST_PAGE));
     });
   });
 
@@ -145,10 +150,10 @@ test.describe('Product list and product card', { tag: '@product-list' }, () => {
       await list.goto();
       const card = list.grid.card(arcHeadphones.name);
 
-      await expect(card.getByRole('heading', { level: 3 })).toHaveText(arcHeadphones.name);
-      await expect(list.grid.subcategoryLink(arcHeadphones.name)).toHaveText('Audio');
-      await expect(list.grid.price(arcHeadphones.name)).toHaveText('$129.00');
-      await expect(list.grid.stock(arcHeadphones.name)).toHaveText(`${stock} available`);
+      await expect(card).toBeVisible();
+      await expect(list.grid.subcategoryLink(arcHeadphones.name)).toHaveText(arcHeadphones.subcategory);
+      await expect(list.grid.price(arcHeadphones.name)).toHaveText(formatUsd(arcHeadphones.price));
+      await expect(list.grid.stock(arcHeadphones.name)).toHaveText(CART_TEXT.available(stock));
       await expect(list.grid.addToBagButton(arcHeadphones.name)).toBeVisible();
       await expect(list.grid.heart(arcHeadphones.name)).toBeVisible();
     });
@@ -159,9 +164,9 @@ test.describe('Product list and product card', { tag: '@product-list' }, () => {
 
       await list.grid.subcategoryLink(arcHeadphones.name).click();
 
-      await expect(list.heading).toHaveText('Audio');
+      await expect(list.heading).toHaveText(SUBCATEGORY.audio.name);
       await list.waitForProducts();
-      await expect(list.resultCount).toHaveText('4 products');
+      await expect(list.resultCount).toHaveText(LIST_TEXT.resultCount(SUBCATEGORY.audio.count));
     });
 
     test('LIST-022 Product with 1 unit shows "Last one"', { tag: '@regression' }, async ({ page, api, request, createUser }) => {
@@ -170,20 +175,20 @@ test.describe('Product list and product card', { tag: '@product-list' }, () => {
 
       await list.goto({ q: DUMBBELLS.name });
 
-      await expect(list.grid.card(DUMBBELLS.name).locator('.product-tag')).toHaveText('Last one');
-      await expect(list.grid.stock(DUMBBELLS.name)).toHaveText('1 available');
+      await expect(list.grid.tag(DUMBBELLS.name)).toHaveText(CART_TEXT.lastOne);
+      await expect(list.grid.stock(DUMBBELLS.name)).toHaveText(CART_TEXT.available(1));
     });
 
     test('LIST-023 Low stock is highlighted', { tag: '@regression' }, async ({ page, api, request, createUser }) => {
       const list = new ProductListPage(page);
-      await drainStockTo(api, createApiClients(request, (await createUser()).token), TENT.id, 3);
-      expect(await availableStock(api, arcHeadphones.id), 'Arc has more than 3 units').toBeGreaterThan(3);
+      await drainStockTo(api, createApiClients(request, (await createUser()).token), TENT.id, LOW_STOCK);
+      expect(await availableStock(api, arcHeadphones.id), `Arc has more than ${LOW_STOCK} units`).toBeGreaterThan(LOW_STOCK);
 
       await list.goto({ q: TENT.name });
-      await expect(list.grid.stock(TENT.name)).toHaveText('3 available');
+      await expect(list.grid.stock(TENT.name)).toHaveText(CART_TEXT.available(LOW_STOCK));
       await expect(list.grid.stock(TENT.name)).toHaveClass(/stock-low/);
 
-      await list.goto({ q: 'headphones' });
+      await list.goto({ q: arcHeadphones.name });
       await expect(list.grid.stock(arcHeadphones.name)).not.toHaveClass(/stock-low/);
     });
 
@@ -193,7 +198,7 @@ test.describe('Product list and product card', { tag: '@product-list' }, () => {
 
       await list.goto({ q: fieldBackpack.name });
 
-      await expect(list.grid.stock(fieldBackpack.name)).toHaveText('Sold out');
+      await expect(list.grid.stock(fieldBackpack.name)).toHaveText(CART_TEXT.soldOut);
       await expect(list.grid.addToBagButton(fieldBackpack.name)).toBeDisabled();
     });
   });

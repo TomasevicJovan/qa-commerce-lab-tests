@@ -1,6 +1,6 @@
 import { test, expect } from '@core/fixtures';
 import { expectMatchesContract } from '@core/schema-validator';
-import { CARDS, PRODUCTS } from '@core/test-data';
+import { API_ERRORS, CARDS, PRODUCTS, ORDER_EVENTS, ORDER_HISTORY } from '@data/index';
 import { availableStock, drainStockTo, ensureStock, placeAndSettle, placeOrder, setCart, waitForTerminalOrder, expectedTotals } from '@core/flows/order-flow';
 import { buildCheckout, newIdempotencyKey, pay } from '@core/factories/checkout-factory';
 import { createApiClients } from '@api/index';
@@ -27,7 +27,7 @@ test.describe('Orders, order page and payment messages', { tag: ['@orders', '@ap
 
     const order = await waitForTerminalOrder(api, accepted.id);
 
-    expect(order.history.map((h) => h.status)).toEqual(['pending', 'payment_pending', 'confirmed']);
+    expect(order.history.map((h) => h.status)).toEqual([...ORDER_HISTORY.approved]);
     const payment = (await (await api.payments.get(order.id)).json()) as Payment;
     expect(payment).toMatchObject({ status: 'approved', amount: expected.total });
   });
@@ -38,7 +38,7 @@ test.describe('Orders, order page and payment messages', { tag: ['@orders', '@ap
 
     const { order } = await placeAndSettle(api, [{ productId: product.id, quantity: 1 }], pay.newCard(CARDS.declined));
 
-    expect(order.history.map((h) => h.status)).toEqual(['pending', 'payment_pending', 'compensating', 'cancelled']);
+    expect(order.history.map((h) => h.status)).toEqual([...ORDER_HISTORY.declined]);
     expect(order.reason).toBe('card_declined');
     const payment = (await (await api.payments.get(order.id)).json()) as Payment;
     expect(payment.status).toBe('failed');
@@ -61,7 +61,7 @@ test.describe('Orders, order page and payment messages', { tag: ['@orders', '@ap
 
     expect(settled.map((o) => o.status).sort()).toEqual(['confirmed', 'rejected']);
     const loserIndex = settled.findIndex((o) => o.status === 'rejected');
-    expect(settled[loserIndex]!.reason).toBe('Insufficient stock');
+    expect(settled[loserIndex]!.reason).toBe(API_ERRORS.orders.outOfStock);
     expect(await availableStock(api, product.id)).toBe(0);
     const loserPayment = (await (await customers[loserIndex]!.payments.get(settled[loserIndex]!.id)).json()) as Payment;
     expect(loserPayment.status, 'the loser is never charged').toBe('pending');
@@ -73,7 +73,7 @@ test.describe('Orders, order page and payment messages', { tag: ['@orders', '@ap
 
     for (const response of [await other.orders.get(order.id), await other.payments.get(order.id)]) {
       expect(response.status(), response.url()).toBe(404);
-      expect(((await response.json()) as ApiError).error).toBe('Order not found');
+      expect(((await response.json()) as ApiError).error).toBe(API_ERRORS.orders.notFound);
     }
   });
 
@@ -97,8 +97,8 @@ test.describe('Orders, order page and payment messages', { tag: ['@orders', '@ap
     const { order: declined } = await placeAndSettle(api, item, pay.newCard(CARDS.declined));
 
     await expect.poll(async () => (await lab.eventsFor(approved.id)).map((e) => e.type))
-      .toEqual(['OrderPlaced', 'InventoryReserved', 'PaymentApproved', 'OrderConfirmed']);
+      .toEqual([...ORDER_EVENTS.approved]);
     await expect.poll(async () => (await lab.eventsFor(declined.id)).map((e) => e.type))
-      .toEqual(['OrderPlaced', 'InventoryReserved', 'PaymentFailed', 'InventoryReleased']);
+      .toEqual([...ORDER_EVENTS.declined]);
   });
 });

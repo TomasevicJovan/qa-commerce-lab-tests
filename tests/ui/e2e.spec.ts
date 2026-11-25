@@ -1,11 +1,12 @@
 import { test, expect } from '@core/fixtures';
-import type { Page } from '@playwright/test';
 import { CheckoutPage, HomePage, OrderPage, OrdersPage, ProductListPage, WishlistPage } from '@pages/index';
-import { CARDS, PRODUCTS } from '@core/test-data';
+import { AUTH_TEXT, CART_TEXT, CHECKOUT_TEXT, COUPONS, LIST_TEXT, ORDER_TEXT, PAYMENT_TEXT, PRODUCTS, QUERY, SUBCATEGORY, TOTALS_TEXT, CARDS } from '@data/index';
+import { SEARCHES } from '@data/cases/search';
+import { signInWithToken } from '@core/fixtures';
 import { availableStock, drainStockTo, ensureStock, setCart } from '@core/flows/order-flow';
 import { buildCredentials } from '@core/factories/user-factory';
-import { futureExpiry } from '@core/factories/checkout-factory';
-import { calculateTotals, formatUsd } from '@core/pricing';
+import { buildAddress, cardForm, formatAddress } from '@core/factories/checkout-factory';
+import { SHIPPING_FEE, calculateTotals, formatUsd } from '@core/pricing';
 import { config } from '@core/config';
 import { createApiClients } from '@api/index';
 import type { Order, Payment } from '@api/types';
@@ -13,7 +14,8 @@ import type { Order, Payment } from '@api/types';
 const settle = { timeout: config.orderTimeoutMs };
 const { arcHeadphones, pulseController, eyeCamera, stillMug, brewKettle, pressGrinder, noteJournal, trailBottle, pedalCage } = PRODUCTS;
 // E2E-06 races for the last unit of its own product, so it never competes with ORD-004 and ORD-044 for stock.
-const VASE = { id: 'p9', name: 'Halo Glass Vase' };
+const VASE = PRODUCTS.haloVase;
+const { total: TOTAL, shipping: SHIPPING, minus } = TOTALS_TEXT;
 
 /** Clicks Next on a product list until the product's card appears. */
 async function findOnList(list: ProductListPage, name: string): Promise<void> {
@@ -26,8 +28,6 @@ async function findOnList(list: ProductListPage, name: string): Promise<void> {
   }
 }
 
-/** Order id from the order page URL. */
-const orderIdOf = (page: Page) => page.url().split('/').pop() as string;
 
 test.describe('End-to-end flows', { tag: '@e2e' }, () => {
   // A flow walks through several features, so it gets more time than a single-feature test.
@@ -39,13 +39,14 @@ test.describe('End-to-end flows', { tag: '@e2e' }, () => {
     const checkout = new CheckoutPage(page);
     const order = new OrderPage(page);
     const credentials = buildCredentials();
+    const address = buildAddress();
     await ensureStock(anonApi, arcHeadphones.id, 2);
     const stockBefore = await availableStock(anonApi, arcHeadphones.id);
     const expected = calculateTotals([{ unitPrice: arcHeadphones.price, quantity: 1 }]);
 
     await test.step('SRCH-001 search "headphones"', async () => {
       await home.goto();
-      await home.header.search('headphones');
+      await home.header.search(SEARCHES.byName.term);
       await list.waitForProducts();
       await expect(list.grid.price(arcHeadphones.name)).toHaveText(formatUsd(arcHeadphones.price));
     });
@@ -53,7 +54,7 @@ test.describe('End-to-end flows', { tag: '@e2e' }, () => {
     await test.step('AUTH-004 register a new account', async () => {
       await home.header.openRegistration();
       await home.authDialog.register(credentials.name, credentials.email, credentials.password);
-      await expect(home.header.accountButton).toHaveText(`${credentials.name} ▾`);
+      await expect(home.header.accountButton).toHaveText(AUTH_TEXT.accountButton(credentials.name));
     });
 
     await test.step('CART-001 add Arc Wireless Headphones', async () => {
@@ -62,25 +63,27 @@ test.describe('End-to-end flows', { tag: '@e2e' }, () => {
       await expect(home.header.bagCount).toHaveText('1');
       await home.header.openBag();
       await expect(home.bag.line(arcHeadphones.name)).toContainText(formatUsd(arcHeadphones.price));
-      await expect(home.bag.totals.value('Total')).toHaveText(formatUsd(expected.total));
+      await expect(home.bag.totals.value(TOTAL)).toHaveText(formatUsd(expected.total));
       await home.bag.continueToCheckout();
     });
 
     await test.step('CHK-061 pay with a new Visa 4242 and save it', async () => {
       await checkout.waitForForm();
-      await expect(checkout.totals.value('Total')).toHaveText(formatUsd(expected.total));
-      await checkout.fillCard({ holder: 'Alex Tester', number: CARDS.visa.number, expiry: futureExpiry(), cvc: CARDS.visa.cvc, save: true });
+      await expect(checkout.totals.value(TOTAL)).toHaveText(formatUsd(expected.total));
+      await checkout.fillAddress(address);
+      await checkout.fillCard(cardForm(CARDS.visa, { save: true }));
       await checkout.placeOrder();
     });
 
     await test.step('ORD-002 payment successful', async () => {
       await expect(order.bannerFor('confirmed')).toBeVisible(settle);
-      await expect(order.totals.value('Total')).toHaveText(formatUsd(expected.total));
+      await expect(order.totals.value(TOTAL)).toHaveText(formatUsd(expected.total));
+      await expect(order.fact(ORDER_TEXT.facts.deliverTo)).toHaveText(formatAddress(address));
       expect(await availableStock(anonApi, arcHeadphones.id)).toBe(stockBefore - 1);
     });
 
     await test.step('next checkout lists Visa •••• 4242 for this customer', async () => {
-      await list.goto({ q: 'headphones' });
+      await list.goto({ q: arcHeadphones.name });
       await list.grid.addToBag(arcHeadphones.name);
       await expect(home.header.bagCount).toHaveText('1');
       await checkout.goto();
@@ -99,21 +102,21 @@ test.describe('End-to-end flows', { tag: '@e2e' }, () => {
     for (const product of [pulseController, eyeCamera]) await ensureStock(api, product.id, 1);
     const expected = calculateTotals(
       [pulseController, eyeCamera].map((p) => ({ unitPrice: p.price, quantity: 1 })),
-      { coupon: 'SAVE10', cardBrand: 'mastercard' },
+      { coupon: COUPONS.save10, cardBrand: 'mastercard' },
     );
 
     await test.step('AUTH-020 sign in', async () => {
       await home.goto();
       await home.header.openSignIn();
       await home.authDialog.signIn(customer.email, customer.password);
-      await expect(home.header.accountButton).toHaveText(`${customer.name} ▾`);
+      await expect(home.header.accountButton).toHaveText(AUTH_TEXT.accountButton(customer.name));
     });
 
     await test.step('NAV-001 open Black Friday and CART-001 add two deals', async () => {
       await home.header.blackFridayLink.click();
       await list.waitForProducts();
       for (const product of [pulseController, eyeCamera]) {
-        await list.goto({ deal: 'black-friday' });
+        await list.goto({ deal: QUERY.deal.blackFriday });
         await findOnList(list, product.name);
         await list.grid.addToBag(product.name);
       }
@@ -123,28 +126,28 @@ test.describe('End-to-end flows', { tag: '@e2e' }, () => {
     await test.step('CHK-050 apply SAVE10 and CHK-053 choose Mastercard •••• 4444', async () => {
       await checkout.goto();
       await checkout.waitForForm();
-      await checkout.coupon.fill('SAVE10');
+      await checkout.coupon.fill(COUPONS.save10);
       await checkout.chooseSavedCard(CARDS.mastercard.last4);
-      await expect(checkout.totals.value('Coupon SAVE10')).toHaveText(`−${formatUsd(expected.couponDiscount)}`);
-      await expect(checkout.totals.value('Mastercard 10%')).toHaveText(`−${formatUsd(expected.paymentDiscount)}`);
-      await expect(checkout.totals.value('Total')).toHaveText(formatUsd(expected.total));
+      await expect(checkout.totals.value(TOTALS_TEXT.coupon(COUPONS.save10))).toHaveText(minus(expected.couponDiscount));
+      await expect(checkout.totals.value(TOTALS_TEXT.mastercard)).toHaveText(minus(expected.paymentDiscount));
+      await expect(checkout.totals.value(TOTAL)).toHaveText(formatUsd(expected.total));
       await checkout.placeOrder();
     });
 
     await test.step('ORD-002 payment successful; order page equals the checkout preview', async () => {
       await expect(order.bannerFor('confirmed')).toBeVisible(settle);
-      await expect(order.items).toContainText(`1 × ${pulseController.name} · $59.00`);
-      await expect(order.items).toContainText(`1 × ${eyeCamera.name} · $69.00`);
-      await expect(order.totals.value('Coupon SAVE10')).toHaveText(`−${formatUsd(expected.couponDiscount)}`);
-      await expect(order.totals.value('Mastercard 10%')).toHaveText(`−${formatUsd(expected.paymentDiscount)}`);
-      await expect(order.totals.value('Total')).toHaveText(formatUsd(expected.total));
+      await expect(order.items).toContainText(ORDER_TEXT.itemLine(1, pulseController.name, pulseController.price));
+      await expect(order.items).toContainText(ORDER_TEXT.itemLine(1, eyeCamera.name, eyeCamera.price));
+      await expect(order.totals.value(TOTALS_TEXT.coupon(COUPONS.save10))).toHaveText(minus(expected.couponDiscount));
+      await expect(order.totals.value(TOTALS_TEXT.mastercard)).toHaveText(minus(expected.paymentDiscount));
+      await expect(order.totals.value(TOTAL)).toHaveText(formatUsd(expected.total));
     });
 
     await test.step('order is first in My orders', async () => {
       const orders = new OrdersPage(page);
-      const orderId = orderIdOf(page);
+      const orderId = order.idFromUrl();
       await orders.goto();
-      await expect(orders.orders.first()).toHaveAttribute('data-order-id', orderId);
+      expect((await orders.orderIds())[0]).toBe(orderId);
     });
   });
 
@@ -176,7 +179,7 @@ test.describe('End-to-end flows', { tag: '@e2e' }, () => {
       await expect(page).toHaveURL(/#checkout$/);
       await checkout.waitForForm();
       await expect(checkout.summaryItems).toHaveCount(1);
-      await expect(checkout.summaryItems).toContainText(`1 × ${formatUsd(stillMug.price)}`);
+      await expect(checkout.summaryItems).toContainText(CHECKOUT_TEXT.summaryLine(1, stillMug.price));
       expect(await (await api.cart.get()).json()).toEqual([{ productId: stillMug.id, quantity: 1 }]);
     });
 
@@ -205,8 +208,8 @@ test.describe('End-to-end flows', { tag: '@e2e' }, () => {
 
     await test.step('CATM-008 open Kitchen and WISH-001 save two products', async () => {
       await home.goto();
-      await home.header.categories.openSubcategory('Home & Living', 'Kitchen');
-      await expect(list.heading).toHaveText('Kitchen');
+      await home.header.categories.openSubcategory(SUBCATEGORY.kitchen.category, SUBCATEGORY.kitchen.name);
+      await expect(list.heading).toHaveText(SUBCATEGORY.kitchen.name);
       await list.waitForProducts();
       await list.grid.heart(brewKettle.name).click();
       await list.grid.heart(pressGrinder.name).click();
@@ -252,7 +255,7 @@ test.describe('End-to-end flows', { tag: '@e2e' }, () => {
       await home.header.freeShippingLink.click();
       await list.waitForProducts();
       for (const product of [noteJournal, trailBottle]) {
-        await list.goto({ freeShipping: 'true' });
+        await list.goto({ freeShipping: QUERY.freeShipping.yes });
         await findOnList(list, product.name);
         await list.grid.addToBag(product.name);
       }
@@ -261,30 +264,31 @@ test.describe('End-to-end flows', { tag: '@e2e' }, () => {
 
     await test.step('PRICE-040 bag shipping "On us"', async () => {
       await home.header.openBag();
-      await expect(home.bag.totals.value('Shipping')).toHaveText('On us');
-      await expect(home.bag.totals.value('Total')).toHaveText(total);
+      await expect(home.bag.totals.value(SHIPPING)).toHaveText(TOTALS_TEXT.freeShipping);
+      await expect(home.bag.totals.value(TOTAL)).toHaveText(total);
       await home.bag.closeButton.click();
     });
 
     await test.step('CART-001 add Still Ceramic Mug, PRICE-041 shipping $7.00, then remove it', async () => {
       await list.goto({ q: stillMug.name });
       await list.grid.addToBag(stillMug.name);
+      await expect(home.header.bagCount).toHaveText('3');
       await home.header.openBag();
-      await expect(home.bag.totals.value('Shipping')).toHaveText('$7.00');
+      await expect(home.bag.totals.value(SHIPPING)).toHaveText(formatUsd(SHIPPING_FEE));
       await home.bag.decrease(stillMug.name);
-      await expect(home.bag.totals.value('Shipping')).toHaveText('On us');
-      await expect(home.bag.totals.value('Total')).toHaveText(total);
+      await expect(home.bag.totals.value(SHIPPING)).toHaveText(TOTALS_TEXT.freeShipping);
+      await expect(home.bag.totals.value(TOTAL)).toHaveText(total);
       await home.bag.continueToCheckout();
     });
 
     await test.step('CHK-060 pay with Visa •••• 4242 and ORD-002 payment successful', async () => {
       await checkout.waitForForm();
-      await expect(checkout.totals.value('Shipping')).toHaveText('On us');
-      await expect(checkout.totals.value('Total')).toHaveText(total);
+      await expect(checkout.totals.value(SHIPPING)).toHaveText(TOTALS_TEXT.freeShipping);
+      await expect(checkout.totals.value(TOTAL)).toHaveText(total);
       await checkout.placeOrder();
       await expect(order.bannerFor('confirmed')).toBeVisible(settle);
-      await expect(order.totals.value('Shipping')).toHaveText('On us');
-      await expect(order.totals.value('Total')).toHaveText(total);
+      await expect(order.totals.value(SHIPPING)).toHaveText(TOTALS_TEXT.freeShipping);
+      await expect(order.totals.value(TOTAL)).toHaveText(total);
     });
   });
 
@@ -292,12 +296,8 @@ test.describe('End-to-end flows', { tag: '@e2e' }, () => {
     const userB = await createUser();
     const apiB = createApiClients(request, userB.token);
     const contextB = await browser.newContext();
-    await contextB.addInitScript((token) => {
-      if (sessionStorage.getItem('qa-test-auth-injected')) return;
-      sessionStorage.setItem('qa-token', token);
-      sessionStorage.setItem('qa-test-auth-injected', '1');
-    }, userB.token);
     const pageB = await contextB.newPage();
+    await signInWithToken(pageB, userB.token);
     await drainStockTo(api, createApiClients(request, (await createUser()).token), VASE.id, 1);
     const customers = [
       { name: 'A', page: pageA, api },
@@ -321,11 +321,7 @@ test.describe('End-to-end flows', { tag: '@e2e' }, () => {
 
     await test.step('ORD-002 / ORD-004 one payment successful, one order not completed', async () => {
       const statuses: string[] = [];
-      for (const c of customers) {
-        const banner = new OrderPage(c.page).banner;
-        await expect(banner, c.name).toHaveAttribute('data-status', /^(confirmed|rejected)$/, settle);
-        statuses.push((await banner.getAttribute('data-status')) as string);
-      }
+      for (const c of customers) statuses.push(await new OrderPage(c.page).settledStatus(['confirmed', 'rejected']));
       expect([...statuses].sort()).toEqual(['confirmed', 'rejected']);
 
       const loser = customers[statuses.indexOf('rejected')]!;
@@ -338,7 +334,7 @@ test.describe('End-to-end flows', { tag: '@e2e' }, () => {
     await test.step('the product shows "Sold out" afterwards', async () => {
       const list = new ProductListPage(pageA);
       await list.goto({ q: VASE.name });
-      await expect(list.grid.stock(VASE.name)).toHaveText('Sold out');
+      await expect(list.grid.stock(VASE.name)).toHaveText(CART_TEXT.soldOut);
     });
     await contextB.close();
   });
@@ -352,13 +348,13 @@ test.describe('End-to-end flows', { tag: '@e2e' }, () => {
 
     await test.step('CATM-004 open Sports & Outdoors, CATM-006 choose Cycling, LIST-002 sort by price', async () => {
       await home.goto();
-      await home.header.categories.openCategory('Sports & Outdoors');
-      await expect(list.heading).toHaveText('Sports & Outdoors');
+      await home.header.categories.openCategory(SUBCATEGORY.cycling.category);
+      await expect(list.heading).toHaveText(SUBCATEGORY.cycling.category);
       await list.waitForProducts();
-      await list.subcategoryChip('Cycling').click();
-      await expect(list.heading).toHaveText('Cycling');
+      await list.subcategoryChip(SUBCATEGORY.cycling.name).click();
+      await expect(list.heading).toHaveText(SUBCATEGORY.cycling.name);
       await list.waitForProducts();
-      await list.sortBy('Price: low to high');
+      await list.sortBy(LIST_TEXT.sort.priceLowHigh);
     });
 
     await test.step('CART-001 add the first product', async () => {
@@ -370,11 +366,11 @@ test.describe('End-to-end flows', { tag: '@e2e' }, () => {
     await test.step('CHK-061 pay with a new Amex 3782 822463 10005 and ORD-002 payment successful', async () => {
       await checkout.goto();
       await checkout.waitForForm();
-      await checkout.fillCard({ holder: 'Alex Tester', number: CARDS.amex.number, expiry: futureExpiry(), cvc: CARDS.amex.cvc, save: false });
+      await checkout.fillCard(cardForm(CARDS.amex, { save: false }));
       await checkout.placeOrder();
       await expect(order.bannerFor('confirmed')).toBeVisible(settle);
-      await expect(order.items).toHaveText(`1 × ${pedalCage.name} · $12.00`);
-      await expect(order.fact('Payment')).toHaveText('American Express •••• 0005');
+      await expect(order.items).toHaveText(ORDER_TEXT.itemLine(1, pedalCage.name, pedalCage.price));
+      await expect(order.fact(ORDER_TEXT.facts.payment)).toHaveText(PAYMENT_TEXT.card(CARDS.amex.brand, CARDS.amex.last4));
     });
   });
 });

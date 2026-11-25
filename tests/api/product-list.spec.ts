@@ -1,6 +1,6 @@
 import { test, expect } from '@core/fixtures';
 import { expectMatchesContract } from '@core/schema-validator';
-import { CATALOG } from '@core/test-data';
+import { API_ERRORS, CATALOG, LIMITS, QUERY } from '@data/index';
 import type { ApiError, Product, ProductPage } from '@api/types';
 import type { ApiClients } from '@api/index';
 
@@ -8,7 +8,7 @@ import type { ApiClients } from '@api/index';
 async function allProducts(api: ApiClients, sort?: string): Promise<Product[]> {
   const items: Product[] = [];
   for (let page = 1; items.length < CATALOG.totalProducts; page++) {
-    const body = (await (await api.catalog.list({ sort, limit: 50, page })).json()) as ProductPage;
+    const body = (await (await api.catalog.list({ sort, limit: LIMITS.pageSize.max, page })).json()) as ProductPage;
     if (!body.items.length) break;
     items.push(...body.items);
   }
@@ -17,9 +17,9 @@ async function allProducts(api: ApiClients, sort?: string): Promise<Product[]> {
 
 test.describe('Product list and product card', { tag: ['@product-list', '@api'] }, () => {
   const SORTS = [
-    { sort: 'price', key: 'price', direction: 'ascending' },
-    { sort: 'price-desc', key: 'price', direction: 'descending' },
-    { sort: 'popular', key: 'popularity', direction: 'descending' },
+    { sort: QUERY.sort.priceLowHigh, key: 'price', direction: 'ascending' },
+    { sort: QUERY.sort.priceHighLow, key: 'price', direction: 'descending' },
+    { sort: QUERY.sort.popular, key: 'popularity', direction: 'descending' },
   ] as const;
   for (const { sort, key, direction } of SORTS) {
     test(`LIST-030 Sort orders are correct: ${sort}`, { tag: '@regression' }, async ({ anonApi }) => {
@@ -49,18 +49,18 @@ test.describe('Product list and product card', { tag: ['@product-list', '@api'] 
     expect(seen.size).toBe(CATALOG.totalProducts);
   });
 
-  for (const query of [{ page: 0 }, { limit: 0 }, { limit: 51 }, { page: 1.5 }]) {
+  for (const query of [{ page: 0 }, { limit: 0 }, { limit: LIMITS.pageSize.max + 1 }, { page: 1.5 }]) {
     test(`LIST-032 Invalid pagination returns 422: ${JSON.stringify(query)}`, { tag: '@regression' }, async ({ anonApi }) => {
       const response = await anonApi.catalog.list(query);
 
       expect(response.status()).toBe(422);
-      expect(((await response.json()) as ApiError).error).toBe('Invalid pagination');
+      expect(((await response.json()) as ApiError).error).toBe(API_ERRORS.catalog.invalidPagination);
     });
   }
 
   test('LIST-033 Unknown sort falls back to catalog order', { tag: '@regression' }, async ({ anonApi }) => {
     const unsorted = (await allProducts(anonApi)).map((p) => p.id);
-    const byName = (await allProducts(anonApi, 'name')).map((p) => p.id);
+    const byName = (await allProducts(anonApi, 'unknown-sort')).map((p) => p.id);
 
     expect(byName).toEqual(unsorted);
   });

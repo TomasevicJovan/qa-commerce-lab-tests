@@ -25,6 +25,16 @@ export class BagDialog {
     return this.lines.filter({ has: this.page.getByRole('heading', { name: productName, exact: true }) });
   }
 
+  /** Price line of a product: price, original price for a deal, "Free shipping". */
+  priceOf(productName: string): Locator {
+    return this.line(productName).locator('.cart-detail p');
+  }
+
+  /** Crossed-out original price of a deal. */
+  originalPriceOf(productName: string): Locator {
+    return this.priceOf(productName).locator('s');
+  }
+
   quantityOf(productName: string): Locator {
     return this.line(productName).locator('.qty span');
   }

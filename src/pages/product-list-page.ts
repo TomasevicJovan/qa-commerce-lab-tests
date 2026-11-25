@@ -19,6 +19,16 @@ export class ProductListPage extends BasePage {
   readonly previousPage = this.page.locator('#prev');
 
   /** Opens a list by its URL parameters, e.g. { category: 'Pets' }. */
+  /** A link in the breadcrumb, e.g. "All categories". */
+  breadcrumbLink(name: string): Locator {
+    return this.breadcrumb.getByRole('link', { name });
+  }
+
+  /** The option shown in the sort list. */
+  get selectedSort(): Locator {
+    return this.sortSelect.locator('option:checked');
+  }
+
   async goto(params: Record<string, string | number> = {}): Promise<void> {
     const query = new URLSearchParams(Object.entries(params).map(([k, v]) => [k, String(v)])).toString();
     await this.open(`#shop${query ? `?${query}` : ''}`);
@@ -70,5 +80,10 @@ export class ProductListPage extends BasePage {
       values.push(...(await read()));
     }
     return values;
+  }
+
+  /** Elements of the given tag inside the heading (search terms must render as text, not markup). */
+  headingElements(tag: string): Locator {
+    return this.heading.locator(tag);
   }
 }
