@@ -1,30 +1,30 @@
 # Coverage
 
-Planned test cases per feature and how many are automated. The **Automated** column is updated as features are implemented.
+Planned test cases per feature and how many are automated.
 
-Status: all test cases for the current version of the shop are planned; automation is starting. The previous tests covered an older version of the shop and are being rewritten.
+Status: every planned test case is automated. Each test title starts with its case ID, so a case can be found in the code and in the report by searching for it.
 
 ## By feature
 
 | Feature | Tag | Risk | UI | API | Total | Smoke | P1 | Automated |
 |---|---|---|---:|---:|---:|---:|---:|---:|
-| Registration and sign-in | `@auth` | High | 26 | 10 | 36 | 5 | 16 | 0 |
-| Search | `@search` | Medium | 14 | 7 | 21 | 2 | 2 | 0 |
-| All categories dropdown | `@categories-menu` | Medium | 15 | 4 | 19 | 2 | 5 | 0 |
-| Black Friday, Free shipping, popular links | `@navigation` | Medium | 12 | 4 | 16 | 3 | 7 | 0 |
-| Promotion bar | `@promo` | Low | 10 | 0 | 10 | 1 | 0 | 0 |
-| Home page product rows | `@home` | Low | 13 | 2 | 15 | 1 | 2 | 0 |
-| All categories page | `@categories-page` | Low | 7 | 0 | 7 | 1 | 1 | 0 |
-| Product list and product card | `@product-list` | Medium | 17 | 4 | 21 | 2 | 7 | 0 |
-| Cart | `@cart` | Medium | 16 | 6 | 22 | 4 | 13 | 0 |
-| Wishlist | `@wishlist` | Medium | 12 | 7 | 19 | 2 | 6 | 0 |
-| Checkout and card payments | `@checkout` | High | 34 | 12 | 46 | 3 | 25 | 0 |
-| Saved cards | `@saved-cards` | High | 8 | 6 | 14 | 2 | 9 | 0 |
-| Pricing | `@pricing` | High | 5 | 18 | 23 | 2 | 10 | 0 |
-| Orders, order page, payment messages | `@orders` | High | 21 | 11 | 32 | 4 | 18 | 0 |
-| Help pages and footer | `@help` | Low | 15 | 2 | 17 | 1 | 1 | 0 |
-| End-to-end flows | `@e2e` | High | 8 | – | 8 | 2 | 8 | 0 |
-| **Total** | | | **233** | **93** | **326** | **37** | **130** | **0** |
+| Registration and sign-in | `@auth` | High | 26 | 10 | 36 | 5 | 16 | 36 |
+| Search | `@search` | Medium | 14 | 7 | 21 | 2 | 2 | 21 |
+| All categories dropdown | `@categories-menu` | Medium | 15 | 4 | 19 | 2 | 5 | 19 |
+| Black Friday, Free shipping, popular links | `@navigation` | Medium | 12 | 4 | 16 | 3 | 7 | 16 |
+| Promotion bar | `@promo` | Low | 10 | 0 | 10 | 1 | 0 | 10 |
+| Home page product rows | `@home` | Low | 13 | 2 | 15 | 1 | 2 | 15 |
+| All categories page | `@categories-page` | Low | 7 | 0 | 7 | 1 | 1 | 7 |
+| Product list and product card | `@product-list` | Medium | 17 | 4 | 21 | 2 | 7 | 21 |
+| Cart | `@cart` | Medium | 16 | 6 | 22 | 4 | 13 | 22 |
+| Wishlist | `@wishlist` | Medium | 12 | 7 | 19 | 2 | 6 | 19 |
+| Checkout and card payments | `@checkout` | High | 34 | 12 | 46 | 3 | 25 | 46 |
+| Saved cards | `@saved-cards` | High | 8 | 6 | 14 | 2 | 9 | 14 |
+| Pricing | `@pricing` | High | 5 | 18 | 23 | 2 | 10 | 23 |
+| Orders, order page, payment messages | `@orders` | High | 21 | 11 | 32 | 4 | 18 | 32 |
+| Help pages and footer | `@help` | Low | 15 | 2 | 17 | 1 | 1 | 17 |
+| End-to-end flows | `@e2e` | High | 8 | – | 8 | 2 | 8 | 8 |
+| **Total** | | | **233** | **93** | **326** | **37** | **130** | **326** |
 
 Data-driven cases are counted once; they run once per data row (for example every category or every approved card).
 
