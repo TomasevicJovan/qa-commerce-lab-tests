@@ -12,6 +12,13 @@ The goal is to confirm before every release that customers can find products, bu
 - **Customer journeys:** end-to-end tests chain small cases into real shopping paths and check that data stays consistent from the bag to the order.
 - **Test design:** techniques used to choose test cases (decision tables, boundary values and others) are described in [test-design.md](test-design.md).
 
+Test data:
+- **Expected values** (products, prices, test cards, coupons, limits, message texts) are kept in one place in the repository (`src/data/`) and taken from the shop's business rules, so a changed rule is updated once.
+- **Values that only need to be valid** (names, emails, passwords, addresses) are generated at random with Faker, so tests do not rely on one lucky value. The data is seeded and every run can be repeated with the same values.
+- **Boundary and invalid values** are chosen on purpose by the test design and do not change.
+- **Accounts and secrets** come from environment variables (repository secrets in CI) and are never written in the code.
+- **Every test prepares its own state** through the API (its own customer, bag, cards and orders), so tests run in parallel and in any order.
+
 Testing levels:
 - **API testing:** shop rules, prices, error responses and access to data, with every response checked against the API specification.
 - **UI testing:** what the customer sees and does in the browser, including every form field and message.
@@ -59,6 +66,7 @@ Detailed numbers per feature: [coverage.md](coverage.md).
 
 - **Playwright + TypeScript:** UI and API test automation
 - **Ajv:** checks API responses against the OpenAPI specification
+- **Faker:** seeded random test data (names, emails, addresses)
 - **GitHub Actions:** starts the shop in Docker and runs the tests on every push
 - **GitHub Pages:** publishes the HTML test report after every run
 - **GitHub Issues:** bug tracking in the shop repository

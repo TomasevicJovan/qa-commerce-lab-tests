@@ -1,6 +1,7 @@
 import type { Locator } from '@playwright/test';
 
-export type TotalsRow = 'Subtotal' | 'Coupon SAVE10' | 'Mastercard 10%' | 'Discount' | 'Shipping' | 'Total';
+/** Row label, e.g. TOTALS_TEXT.shipping. The labels live in src/data/messages.ts. */
+export type TotalsRow = string;
 
 /** Price summary block rendered in the bag, at checkout and on the order page. */
 export class Totals {

@@ -15,7 +15,8 @@
     "paths": {
       "@core/*": ["./src/core/*"],
       "@api/*": ["./src/api/*"],
-      "@pages/*": ["./src/pages/*"]
+      "@pages/*": ["./src/pages/*"],
+      "@data/*": ["./src/data/*"]
     }
   },
   "include": ["src/**/*.ts", "tests/**/*.ts", "playwright.config.ts"]

@@ -1,10 +1,10 @@
 import { test, expect } from '@core/fixtures';
 import type { Page } from '@playwright/test';
 import { CheckoutPage, HomePage, OrderPage, OrdersPage } from '@pages/index';
-import { CARDS, PRODUCTS } from '@core/test-data';
+import { CARDS, LAB, ORDER_HISTORY, ORDER_TEXT, PRODUCTS } from '@data/index';
 import { availableStock, ensureStock, placeAndSettle, placeOrder, setCart, waitForTerminalOrder } from '@core/flows/order-flow';
 import { pay } from '@core/factories/checkout-factory';
-import { calculateTotals, formatUsd } from '@core/pricing';
+import { calculateTotals } from '@core/pricing';
 import { config } from '@core/config';
 import type { ApiClients } from '@api/index';
 import type { Order, Payment } from '@api/types';
@@ -35,17 +35,16 @@ test.describe('Orders, order page and payment messages', { tag: '@orders' }, () 
   test.describe('in the browser', () => {
     test('ORD-001 Order page opens after placing an order', { tag: '@smoke' }, async ({ signedInPage: page, api, saveCards, lab }) => {
       const order = new OrderPage(page);
-      await lab.set({ paymentDelay: 3000 });
+      await lab.set({ paymentDelay: LAB.slowPaymentMs });
       const checkout = await readyToOrder(page, api, saveCards);
 
       await checkout.placeOrder();
 
       await expect(page).toHaveURL(/#order\/[0-9a-f-]{36}$/);
-      const shortId = (page.url().split('/').pop() as string).slice(0, 8);
-      await expect(order.eyebrow).toHaveText(`Order ${shortId}`);
-      await expect(order.heading).toHaveText('Almost there.');
-      await expect(order.banner).toHaveAttribute('data-status', /^(pending|payment_pending)$/);
-      await expect(order.banner).toContainText(/Order received|Processing your payment/);
+      await expect(order.eyebrow).toHaveText(ORDER_TEXT.eyebrow(order.idFromUrl()));
+      await expect(order.heading).toHaveText(ORDER_TEXT.headings.inProgress);
+      await expect(order.bannerFor('pending').or(order.bannerFor('payment_pending'))).toBeVisible();
+      await expect(order.banner).toContainText(new RegExp(`${ORDER_TEXT.banners.received}|${ORDER_TEXT.banners.processing}`));
     });
 
     test('ORD-007 Banner updates without reload', { tag: '@regression' }, async ({ signedInPage: page, api, saveCards, lab }) => {
@@ -53,30 +52,30 @@ test.describe('Orders, order page and payment messages', { tag: '@orders' }, () 
       await lab.set({ pausePayments: true });
       const checkout = await readyToOrder(page, api, saveCards);
       await checkout.placeOrder();
-      await expect(order.bannerFor('payment_pending')).toContainText('Processing your payment', settle);
+      await expect(order.bannerFor('payment_pending')).toContainText(ORDER_TEXT.banners.processing, settle);
       let reloaded = false;
       page.on('load', () => (reloaded = true));
 
       await lab.set({ pausePayments: false });
 
-      await expect(order.bannerFor('confirmed')).toContainText('Payment successful', settle);
+      await expect(order.bannerFor('confirmed')).toContainText(ORDER_TEXT.notifications.paid.title, settle);
       expect(reloaded, 'page was not reloaded').toBe(false);
     });
 
     test('ORD-021 Payment successful message appears on another page', { tag: '@regression' }, async ({ signedInPage: page, api, saveCards, lab }) => {
       const home = new HomePage(page);
-      await lab.set({ paymentDelay: 4000 });
+      await lab.set({ paymentDelay: LAB.paymentWhileBrowsingMs });
       const checkout = await readyToOrder(page, api, saveCards);
       await checkout.placeOrder();
       await expect(page).toHaveURL(/#order\//);
-      const shortId = (page.url().split('/').pop() as string).slice(0, 8);
+      const orderId = new OrderPage(page).idFromUrl();
 
       await home.header.brand.click();
 
       await expect(page).toHaveURL(/#home$/);
-      const total = formatUsd(calculateTotals([{ unitPrice: stillMug.price, quantity: 1 }]).total);
-      await expect(home.notifications.find('success', { title: 'Payment successful' })).toContainText(
-        `Payment of ${total} was successful. Order ${shortId} is confirmed.`,
+      const total = calculateTotals([{ unitPrice: stillMug.price, quantity: 1 }]).total;
+      await expect(home.notifications.find('success', { title: ORDER_TEXT.notifications.paid.title })).toContainText(
+        ORDER_TEXT.notifications.paid.message(total, orderId),
         { timeout: 15_000 },
       );
       await expect(page).toHaveURL(/#home$/);
@@ -88,11 +87,11 @@ test.describe('Orders, order page and payment messages', { tag: '@orders' }, () 
       const { order } = await placeOrder(api, [{ productId: pureToothbrush.id, quantity: 1 }], pay.wallet());
       await waitForStatus(api, order.id, 'payment_pending');
       await orders.goto();
-      await expect(orders.statusOf(order.id)).toHaveText('payment pending');
+      await expect(orders.statusOf(order.id)).toHaveText(ORDER_TEXT.listStatus.payment_pending);
 
       await lab.set({ pausePayments: false });
 
-      await expect(orders.statusOf(order.id)).toHaveText('confirmed', settle);
+      await expect(orders.statusOf(order.id)).toHaveText(ORDER_TEXT.listStatus.confirmed, settle);
     });
   });
 
@@ -146,7 +145,7 @@ test.describe('Orders, order page and payment messages', { tag: '@orders' }, () 
       const { order, expected } = await placeAndSettle(api, [{ productId: pureToothbrush.id, quantity: 1 }], pay.newCard(CARDS.visa));
 
       expect(order.status).toBe('confirmed');
-      expect(order.history.map((h) => h.status)).toEqual(['pending', 'payment_pending', 'confirmed']);
+      expect(order.history.map((h) => h.status)).toEqual([...ORDER_HISTORY.approved]);
       const payment = (await (await api.payments.get(order.id)).json()) as Payment;
       expect(payment).toMatchObject({ status: 'approved', amount: expected.total });
       expect(await availableStock(api, pureToothbrush.id)).toBe(stockBefore - 1);

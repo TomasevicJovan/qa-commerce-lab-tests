@@ -81,6 +81,12 @@ jobs:
         run: npm run typecheck
 
       - name: Run tests
+        env:
+          # Seeded demo account of the lab. Stored as repository secrets, never in the code.
+          DEMO_EMAIL: ${{ secrets.DEMO_EMAIL }}
+          DEMO_PASSWORD: ${{ secrets.DEMO_PASSWORD }}
+          # Set TEST_SEED here (or as a repository variable) to replay the random data of an earlier run.
+          TEST_SEED: ${{ vars.TEST_SEED }}
         run: npm test
 
       - name: Lab logs

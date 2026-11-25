@@ -1,19 +1,12 @@
-import { randomUUID } from 'node:crypto';
 import { expect, type APIRequestContext } from '@playwright/test';
 import { AuthApi } from '@api/auth-api';
 import type { Credentials, Session } from '@api/types';
+import { random } from '@core/random-data';
 
-export const DEFAULT_PASSWORD = 'Password123!';
-
-/** Unique, readable credentials. The run id keeps data from different runs apart. */
+/** A new customer's details: generated name and password, unique email. */
 export function buildCredentials(overrides: Partial<Credentials> = {}): Credentials {
-  const suffix = randomUUID().slice(0, 8);
-  return {
-    name: `QA Tester ${suffix}`,
-    email: `qa.${suffix}@example.com`,
-    password: DEFAULT_PASSWORD,
-    ...overrides,
-  };
+  const name = random.fullName();
+  return { name, email: random.email(name), password: random.password(), ...overrides };
 }
 
 export interface RegisteredUser extends Credentials {

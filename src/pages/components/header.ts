@@ -11,11 +11,15 @@ export class Header {
   readonly accountButton: Locator;
   readonly createAccountButton: Locator;
   readonly accountMenu: Locator;
+  /** Links and buttons inside the account menu, in order. */
+  readonly accountMenuItems: Locator;
   readonly bagButton: Locator;
   readonly bagCount: Locator;
   readonly blackFridayLink: Locator;
   readonly freeShippingLink: Locator;
   readonly popularLinks: Locator;
+  /** Navigation links highlighted as the current page. */
+  readonly activeNavLinks: Locator;
   readonly categories: CategoriesMenu;
 
   constructor(private readonly page: Page) {
@@ -28,12 +32,14 @@ export class Header {
     this.accountButton = page.locator('#account');
     this.createAccountButton = page.locator('#register-open');
     this.accountMenu = page.locator('#account-menu');
+    this.accountMenuItems = this.accountMenu.getByRole('link').or(this.accountMenu.getByRole('button'));
     this.bagButton = page.locator('#cart-open');
     this.bagCount = page.locator('#cart-count');
     const nav = page.getByRole('navigation', { name: 'Shop navigation' });
     this.blackFridayLink = nav.getByRole('link', { name: 'Black Friday', exact: true });
     this.freeShippingLink = nav.getByRole('link', { name: 'Free shipping', exact: true });
     this.popularLinks = page.locator('#popular-categories a');
+    this.activeNavLinks = page.locator('[data-nav-link].active');
     this.categories = new CategoriesMenu(page);
   }
 

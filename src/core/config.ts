@@ -10,6 +10,17 @@ function read(name: string, fallback: string): string {
   return value ? value : fallback;
 }
 
+/** Secrets have no default: a missing value stops the run with a clear message. */
+function required(name: string): string {
+  const value = process.env[name]?.trim();
+  if (!value) {
+    throw new Error(
+      `${name} is not set. Locally: copy .env.example to .env and fill it in. In CI: add ${name} as a repository secret.`,
+    );
+  }
+  return value;
+}
+
 function readNumber(name: string, fallback: number): number {
   const raw = read(name, String(fallback));
   const value = Number(raw);
@@ -29,8 +40,8 @@ if (!ALLOWED_ORIGINS.includes(baseUrl)) {
 export const config = {
   baseUrl,
   demoUser: {
-    email: read('DEMO_EMAIL', 'qa@example.com'),
-    password: read('DEMO_PASSWORD', 'Testing123!'),
+    email: required('DEMO_EMAIL'),
+    password: required('DEMO_PASSWORD'),
   },
   orderTimeoutMs: readNumber('ORDER_TIMEOUT_MS', 15_000),
   isCI: Boolean(process.env.CI),

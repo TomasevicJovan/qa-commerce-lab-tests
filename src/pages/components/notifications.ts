@@ -25,4 +25,9 @@ export class Notifications {
   async dismissAll(): Promise<void> {
     for (const button of await this.all.getByRole('button', { name: 'Dismiss notification' }).all()) await button.click();
   }
+
+  /** The × button of one notification. */
+  dismissButton(notification: Locator): Locator {
+    return notification.getByRole('button', { name: 'Dismiss notification' });
+  }
 }

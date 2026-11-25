@@ -1,6 +1,7 @@
 import { test, expect } from '@core/fixtures';
 import { CheckoutPage, HelpPage, HomePage, OrderPage, ProductListPage, HELP_PAGES } from '@pages/index';
-import { APPROVED_CARDS, CATALOG, PRODUCTS } from '@core/test-data';
+import { APPROVED_CARDS, CARDS, CATALOG, CATEGORIES_TEXT, CATEGORY, HELP_TEXT, LIST_TEXT, ORDER_TEXT, PRODUCTS, WISHLIST_TEXT } from '@data/index';
+import { random } from '@core/random-data';
 import { placeOrder, setCart } from '@core/flows/order-flow';
 import { pay } from '@core/factories/checkout-factory';
 
@@ -23,25 +24,25 @@ test.describe('Help pages and footer', { tag: '@help' }, () => {
       const help = new HelpPage(page);
       await help.goto('test-cards');
 
-      await expect(help.sideMenu.getByRole('link')).toHaveText(Object.values(HELP_PAGES));
-      await expect(help.sideLink('Test cards')).toHaveAttribute('aria-current', 'page');
-      await expect(help.sideMenu.locator('[aria-current="page"]')).toHaveCount(1);
+      await expect(help.sideLinks).toHaveText(Object.values(HELP_PAGES));
+      await expect(help.currentSideLink).toHaveText(HELP_PAGES['test-cards']);
+      await expect(help.currentSideLink).toHaveCount(1);
     });
 
     test('HELP-003 Side menu switches pages', { tag: '@regression' }, async ({ page }) => {
       const help = new HelpPage(page);
       await help.goto('faq');
 
-      await help.sideLink('Complaints and returns').click();
+      await help.sideLink(HELP_PAGES.returns).click();
 
-      await expect(help.heading).toHaveText('Complaints and returns');
+      await expect(help.heading).toHaveText(HELP_PAGES.returns);
     });
 
     test('HELP-004 Unknown help page opens the FAQ', { tag: '@regression' }, async ({ page }) => {
       const help = new HelpPage(page);
-      await help.goto('unknown');
+      await help.goto(random.text(8));
 
-      await expect(help.heading).toHaveText('Frequently asked questions');
+      await expect(help.heading).toHaveText(HELP_PAGES.faq);
     });
 
     test('HELP-005 Help page opens directly from a link', { tag: '@regression' }, async ({ page }) => {
@@ -49,44 +50,35 @@ test.describe('Help pages and footer', { tag: '@help' }, () => {
 
       await page.goto('/#help/returns');
 
-      await expect(help.heading).toHaveText('Complaints and returns');
+      await expect(help.heading).toHaveText(HELP_PAGES.returns);
     });
 
     test('HELP-006 Delivery page shows the shipping table', { tag: '@regression' }, async ({ page }) => {
       const help = new HelpPage(page);
       await help.goto('delivery-and-payment');
 
-      const rows = help.content.locator('table.help-table tbody tr');
-      await expect(rows).toHaveCount(3);
-      const cells = await rows.evaluateAll((trs) => trs.map((tr) => [...tr.querySelectorAll('td')].map((td) => td.textContent?.trim())));
-      expect(cells).toEqual([
-        ['Total after discounts is $150.00 or more', 'Free'],
-        ['Every product in the bag is marked “Free shipping”', 'Free'],
-        ['Anything else', '$7.00 flat'],
-      ]);
+      expect(await help.tableRows()).toEqual(HELP_TEXT.shippingTable);
     });
 
     test('HELP-007 Test cards page lists the 10 approved cards', { tag: '@regression' }, async ({ page }) => {
       const help = new HelpPage(page);
       await help.goto('test-cards');
 
-      const rows = help.content.locator('table.help-table tbody tr');
-      const cells = await rows.evaluateAll((trs) => trs.map((tr) => [...tr.querySelectorAll('td')].map((td) => td.textContent?.trim())));
-      expect(cells).toEqual(APPROVED_CARDS.map((c) => [c.brandName, c.number, 'Payment approved']));
-      await expect(help.content.locator('code', { hasText: '4000 0000 0000 0002' })).toBeVisible();
+      expect(await help.tableRows()).toEqual(APPROVED_CARDS.map((c) => [c.brandName, c.number, HELP_TEXT.testCardResult]));
+      await expect(help.code(CARDS.declined.number)).toBeVisible();
     });
 
     test('HELP-008 FAQ questions open and close', { tag: '@regression' }, async ({ page }) => {
       const help = new HelpPage(page);
       await help.goto('faq');
       const first = help.faqItems.first();
-      const answer = first.locator('p');
+      const answer = help.faqAnswer(first);
       await expect(answer).toBeHidden();
 
-      await first.locator('summary').click();
+      await help.faqQuestion(first).click();
       await expect(answer).toBeVisible();
 
-      await first.locator('summary').click();
+      await help.faqQuestion(first).click();
       await expect(answer).toBeHidden();
     });
 
@@ -94,8 +86,8 @@ test.describe('Help pages and footer', { tag: '@help' }, () => {
       const help = new HelpPage(page);
       await help.goto('how-to-shop');
 
-      await expect(help.content.locator('ol.steps > li')).toHaveCount(5);
-      await expect(help.images).toHaveCount(5);
+      await expect(help.steps).toHaveCount(HELP_TEXT.howToShopSteps);
+      await expect(help.images).toHaveCount(HELP_TEXT.howToShopSteps);
       for (const image of await help.images.all()) {
         await image.scrollIntoViewIfNeeded();
         await expect.poll(() => image.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0), { message: await image.getAttribute('src') ?? '' }).toBe(true);
@@ -106,14 +98,14 @@ test.describe('Help pages and footer', { tag: '@help' }, () => {
       const help = new HelpPage(page);
       // The "My orders" link is on Complaints and returns; Delivery and payment has no links.
       await help.goto('returns');
-      await help.content.getByRole('link', { name: 'My orders' }).click();
+      await help.contentLink(HELP_TEXT.footerLinks.myOrders).click();
       await expect(page).toHaveURL(/#orders$/);
-      await expect(help.heading).toHaveText('Your orders.');
+      await expect(help.heading).toHaveText(ORDER_TEXT.ordersHeading);
 
       await help.goto('notices');
-      await help.content.getByRole('link', { name: 'All categories' }).click();
+      await help.contentLink(CATEGORIES_TEXT.heading).click();
       await expect(page).toHaveURL(/#categories$/);
-      await expect(help.heading).toHaveText('All categories');
+      await expect(help.heading).toHaveText(CATEGORIES_TEXT.heading);
     });
   });
 
@@ -125,7 +117,7 @@ test.describe('Help pages and footer', { tag: '@help' }, () => {
       const home = new HomePage(page);
       const pages = [
         () => home.goto(),
-        () => new ProductListPage(page).goto({ category: 'Pets' }),
+        () => new ProductListPage(page).goto({ category: CATEGORY.pets.name }),
         () => new CheckoutPage(page).goto(),
         () => new OrderPage(page).goto(order.id),
         () => new HelpPage(page).goto('faq'),
@@ -133,8 +125,8 @@ test.describe('Help pages and footer', { tag: '@help' }, () => {
 
       for (const open of pages) {
         await open();
-        for (const section of ['Shopping', 'Your account', 'Deals']) {
-          await expect(home.footer.getByRole('heading', { name: section }), `${page.url()}: ${section}`).toBeVisible();
+        for (const section of HELP_TEXT.footerSections) {
+          await expect(home.footerSection(section), `${page.url()}: ${section}`).toBeVisible();
         }
       }
     });
@@ -143,18 +135,18 @@ test.describe('Help pages and footer', { tag: '@help' }, () => {
       const home = new HomePage(page);
       await home.goto();
 
-      await home.footerLink('My orders').click();
-      await expect(home.heading).toHaveText('Your orders.');
+      await home.footerLink(HELP_TEXT.footerLinks.myOrders).click();
+      await expect(home.heading).toHaveText(ORDER_TEXT.ordersHeading);
 
-      await home.footerLink('Wishlist').click();
-      await expect(home.heading).toHaveText('Your wishlist.');
+      await home.footerLink(HELP_TEXT.footerLinks.wishlist).click();
+      await expect(home.heading).toHaveText(WISHLIST_TEXT.heading);
     });
 
     const DEALS = [
-      { link: 'Black Friday', heading: 'Black Friday deals', count: `${CATALOG.blackFridayDeals} products` },
-      { link: 'Free shipping', heading: 'Free shipping', count: `${CATALOG.freeShippingProducts} products` },
-      { link: 'Most popular', heading: 'All products', count: `${CATALOG.totalProducts} products`, sort: 'Most popular' },
-      { link: 'All categories', heading: 'All categories' },
+      { link: HELP_TEXT.footerLinks.blackFriday, heading: LIST_TEXT.blackFridayHeading, count: LIST_TEXT.resultCount(CATALOG.blackFridayDeals) },
+      { link: HELP_TEXT.footerLinks.freeShipping, heading: LIST_TEXT.freeShippingHeading, count: LIST_TEXT.resultCount(CATALOG.freeShippingProducts) },
+      { link: HELP_TEXT.footerLinks.mostPopular, heading: LIST_TEXT.allProducts, count: LIST_TEXT.resultCount(CATALOG.totalProducts), sort: LIST_TEXT.sort.popular },
+      { link: HELP_TEXT.footerLinks.allCategories, heading: CATEGORIES_TEXT.heading },
     ];
     for (const { link, heading, count, sort } of DEALS) {
       test(`HELP-022 Deals links open the correct lists: ${link}`, { tag: '@regression' }, async ({ page }) => {
@@ -169,7 +161,7 @@ test.describe('Help pages and footer', { tag: '@help' }, () => {
           await list.waitForProducts();
           await expect(list.resultCount).toHaveText(count);
         }
-        if (sort) await expect(list.sortSelect.locator('option:checked')).toHaveText(sort);
+        if (sort) await expect(list.selectedSort).toHaveText(sort);
       });
     }
 
@@ -177,17 +169,17 @@ test.describe('Help pages and footer', { tag: '@help' }, () => {
       const home = new HomePage(page);
       await home.goto();
 
-      await home.footerLink('QA laboratory').click();
+      await home.footerLink(HELP_TEXT.footerLinks.lab).click();
 
       await expect(page).toHaveURL(/#lab$/);
-      await expect(home.heading).toHaveText('Curiosity, in control.');
+      await expect(home.heading).toHaveText(HELP_TEXT.labHeading);
     });
 
     test('HELP-024 API specification opens in a new tab', { tag: '@regression' }, async ({ page }) => {
       const home = new HomePage(page);
       await home.goto();
 
-      const [tab] = await Promise.all([page.context().waitForEvent('page'), home.footerLink('API specification').click()]);
+      const [tab] = await Promise.all([page.context().waitForEvent('page'), home.footerLink(HELP_TEXT.footerLinks.apiSpecification).click()]);
 
       await tab.waitForLoadState();
       expect(new URL(tab.url()).pathname).toBe('/api/openapi.json');

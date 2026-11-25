@@ -1,6 +1,6 @@
 import { test, expect } from '@core/fixtures';
 import { HomePage, ProductListPage, WishlistPage } from '@pages/index';
-import { PRODUCTS } from '@core/test-data';
+import { AUTH_TEXT, CART_TEXT, PRODUCTS, WISHLIST_TEXT } from '@data/index';
 import { drainStockTo } from '@core/flows/order-flow';
 import { createApiClients } from '@api/index';
 
@@ -10,16 +10,16 @@ test.describe('Wishlist', { tag: '@wishlist' }, () => {
   test.describe('hearts', () => {
     test('WISH-001 Clicking an empty heart saves the product', { tag: '@smoke' }, async ({ signedInPage: page, api }) => {
       const list = new ProductListPage(page);
-      await list.goto({ q: 'headphones' });
+      await list.goto({ q: arcHeadphones.name });
       const heart = list.grid.heart(arcHeadphones.name);
       await expect(heart).toHaveAttribute('aria-pressed', 'false');
 
       await heart.click();
 
       await expect(heart).toHaveAttribute('aria-pressed', 'true');
-      await expect(heart).toHaveText('♥');
+      await expect(heart).toHaveText(WISHLIST_TEXT.filledHeart);
       await expect(list.header.wishlistCount).toHaveText('1');
-      await list.notifications.expectShown('success', { message: `${arcHeadphones.name} was saved to your wishlist.` });
+      await list.notifications.expectShown('success', { message: WISHLIST_TEXT.notifications.saved(arcHeadphones.name) });
       expect(await (await api.wishlist.get()).json()).toEqual([expect.objectContaining({ productId: arcHeadphones.id })]);
     });
 
@@ -27,16 +27,16 @@ test.describe('Wishlist', { tag: '@wishlist' }, () => {
       const list = new ProductListPage(page);
       await api.wishlist.add(arcHeadphones.id);
       await page.reload();
-      await list.goto({ q: 'headphones' });
+      await list.goto({ q: arcHeadphones.name });
       const heart = list.grid.heart(arcHeadphones.name);
-      await expect(heart).toHaveText('♥');
+      await expect(heart).toHaveText(WISHLIST_TEXT.filledHeart);
 
       await heart.click();
 
-      await expect(heart).toHaveText('♡');
+      await expect(heart).toHaveText(WISHLIST_TEXT.emptyHeart);
       await expect(heart).toHaveAttribute('aria-pressed', 'false');
       await expect(list.header.wishlistCount).toHaveText('0');
-      await list.notifications.expectShown('info', { message: `${arcHeadphones.name} was removed from your wishlist.` });
+      await list.notifications.expectShown('info', { message: WISHLIST_TEXT.notifications.removed(arcHeadphones.name) });
     });
 
     test('WISH-003 Same product shown twice updates both hearts', { tag: '@regression' }, async ({ signedInPage: page }) => {
@@ -59,26 +59,26 @@ test.describe('Wishlist', { tag: '@wishlist' }, () => {
       await page.reload();
 
       await home.goto();
-      await expect(home.products('popular').heart(arcHeadphones.name)).toHaveText('♥');
+      await expect(home.products('popular').heart(arcHeadphones.name)).toHaveText(WISHLIST_TEXT.filledHeart);
       await list.goto({ category: arcHeadphones.category, subcategory: arcHeadphones.subcategory });
-      await expect(list.grid.heart(arcHeadphones.name)).toHaveText('♥');
-      await list.goto({ q: 'headphones' });
-      await expect(list.grid.heart(arcHeadphones.name)).toHaveText('♥');
+      await expect(list.grid.heart(arcHeadphones.name)).toHaveText(WISHLIST_TEXT.filledHeart);
+      await list.goto({ q: arcHeadphones.name });
+      await expect(list.grid.heart(arcHeadphones.name)).toHaveText(WISHLIST_TEXT.filledHeart);
 
       await page.reload();
       await list.waitForProducts();
-      await expect(list.grid.heart(arcHeadphones.name)).toHaveText('♥');
+      await expect(list.grid.heart(arcHeadphones.name)).toHaveText(WISHLIST_TEXT.filledHeart);
     });
 
     test('WISH-010 Sold out product can be saved', { tag: '@regression' }, async ({ signedInPage: page, api, request, createUser }) => {
       const list = new ProductListPage(page);
       await drainStockTo(api, createApiClients(request, (await createUser()).token), fieldBackpack.id, 0);
       await list.goto({ q: fieldBackpack.name });
-      await expect(list.grid.stock(fieldBackpack.name)).toHaveText('Sold out');
+      await expect(list.grid.stock(fieldBackpack.name)).toHaveText(CART_TEXT.soldOut);
 
       await list.grid.heart(fieldBackpack.name).click();
 
-      await expect(list.grid.heart(fieldBackpack.name)).toHaveText('♥');
+      await expect(list.grid.heart(fieldBackpack.name)).toHaveText(WISHLIST_TEXT.filledHeart);
       await expect(list.header.wishlistCount).toHaveText('1');
     });
   });
@@ -92,7 +92,7 @@ test.describe('Wishlist', { tag: '@wishlist' }, () => {
       await home.header.wishlistLink.click();
 
       await expect(page).toHaveURL(/#wishlist$/);
-      await expect(wishlist.heading).toHaveText('Your wishlist.');
+      await expect(wishlist.heading).toHaveText(WISHLIST_TEXT.heading);
     });
 
     test('WISH-006 Wishlist page shows saved products newest first', { tag: '@regression' }, async ({ signedInPage: page, api }) => {
@@ -102,7 +102,7 @@ test.describe('Wishlist', { tag: '@wishlist' }, () => {
 
       await wishlist.goto();
 
-      await expect(wishlist.summary).toContainText('2 saved products');
+      await expect(wishlist.summary).toContainText(WISHLIST_TEXT.summary(2));
       await expect(wishlist.grid.names).toHaveText([orbitLamp.name, arcHeadphones.name]);
     });
 
@@ -116,7 +116,7 @@ test.describe('Wishlist', { tag: '@wishlist' }, () => {
       await wishlist.grid.heart(orbitLamp.name).click();
 
       await expect(wishlist.grid.card(orbitLamp.name)).toHaveCount(0);
-      await expect(wishlist.summary).toContainText('1 saved product.');
+      await expect(wishlist.summary).toContainText(WISHLIST_TEXT.summary(1));
       await expect(wishlist.header.wishlistCount).toHaveText('1');
     });
 
@@ -170,7 +170,7 @@ test.describe('Wishlist', { tag: '@wishlist' }, () => {
       await home.header.openSignIn();
       await home.authDialog.signIn(customerB.email, customerB.password);
 
-      await expect(home.header.accountButton).toHaveText(`${customerB.name} ▾`);
+      await expect(home.header.accountButton).toHaveText(AUTH_TEXT.accountButton(customerB.name));
       await expect(home.header.wishlistCount).toHaveText('0');
       await wishlist.goto();
       await expect(wishlist.emptyState).toBeVisible();

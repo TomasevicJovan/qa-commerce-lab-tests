@@ -1,6 +1,6 @@
 import { test, expect } from '@core/fixtures';
 import { expectMatchesContract } from '@core/schema-validator';
-import { CATEGORY_TREE, POPULAR_SUBCATEGORIES } from '@core/test-data';
+import { CATEGORY_TREE, LIMITS, POPULAR_SUBCATEGORIES } from '@data/index';
 import type { CategorySummary, ProductPage } from '@api/types';
 import type { ApiClients } from '@api/index';
 
@@ -24,12 +24,12 @@ test.describe('All categories dropdown', { tag: ['@categories-menu', '@api'] }, 
 
   test('CATM-022 Counts match the products returned by /products', { tag: '@regression' }, async ({ anonApi }) => {
     for (const category of await tree(anonApi)) {
-      const whole = (await (await anonApi.catalog.list({ category: category.name, limit: 50 })).json()) as ProductPage;
+      const whole = (await (await anonApi.catalog.list({ category: category.name, limit: LIMITS.pageSize.max })).json()) as ProductPage;
       expect(whole.total, category.name).toBe(category.productCount);
       for (const product of whole.items) expect(product.category).toBe(category.name);
 
       for (const sub of category.subcategories) {
-        const body = (await (await anonApi.catalog.list({ category: category.name, subcategory: sub.name, limit: 50 })).json()) as ProductPage;
+        const body = (await (await anonApi.catalog.list({ category: category.name, subcategory: sub.name, limit: LIMITS.pageSize.max })).json()) as ProductPage;
         expect(body.total, `${category.name} › ${sub.name}`).toBe(sub.productCount);
         for (const product of body.items) expect(product).toMatchObject({ category: category.name, subcategory: sub.name });
       }

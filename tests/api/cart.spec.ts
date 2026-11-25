@@ -1,12 +1,12 @@
 import { test, expect } from '@core/fixtures';
 import { expectMatchesContract } from '@core/schema-validator';
-import { PRODUCTS } from '@core/test-data';
+import { PRODUCTS, UNKNOWN_PRODUCT_ID } from '@data/index';
+import { INVALID_CARTS } from '@data/cases/cart';
 import { availableStock } from '@core/flows/order-flow';
 import { KNOWN_ISSUES, issue } from '@core/known-issues';
 import type { ApiError } from '@api/types';
 
 const { arcHeadphones, orbitLamp } = PRODUCTS;
-const QUANTITY_ERROR = 'Unique products with quantities 1–10 required';
 
 test.describe('Cart', { tag: ['@cart', '@api'] }, () => {
   test('CART-030 PUT /cart saves the cart and GET /cart returns it', { tag: '@smoke' }, async ({ api }) => {
@@ -23,16 +23,7 @@ test.describe('Cart', { tag: ['@cart', '@api'] }, () => {
     expect(await read.json()).toEqual(items);
   });
 
-  const INVALID = [
-    { name: 'quantity 0', items: [{ productId: arcHeadphones.id, quantity: 0 }], error: QUANTITY_ERROR },
-    { name: 'quantity −1', items: [{ productId: arcHeadphones.id, quantity: -1 }], error: QUANTITY_ERROR },
-    { name: 'quantity 1.5', items: [{ productId: arcHeadphones.id, quantity: 1.5 }], error: QUANTITY_ERROR },
-    { name: 'quantity 11', items: [{ productId: arcHeadphones.id, quantity: 11 }], error: QUANTITY_ERROR },
-    { name: 'same product twice', items: [{ productId: arcHeadphones.id, quantity: 1 }, { productId: arcHeadphones.id, quantity: 1 }], error: QUANTITY_ERROR },
-    { name: '21 different products', items: Array.from({ length: 21 }, (_, i) => ({ productId: `p${i + 1}`, quantity: 1 })), error: 'items must contain at most 20 products' },
-    { name: 'items not a list', items: { productId: arcHeadphones.id, quantity: 1 }, error: 'items must contain at most 20 products' },
-  ];
-  for (const { name, items, error } of INVALID) {
+  for (const { name, items, error } of INVALID_CARTS) {
     test(`CART-031 Invalid cart returns 422: ${name}`, { tag: '@regression' }, async ({ api }) => {
       const response = await api.cart.replace(items);
 
@@ -52,7 +43,7 @@ test.describe('Cart', { tag: ['@cart', '@api'] }, () => {
 
   test('CART-033 Unknown product returns 422', { tag: '@regression', annotation: issue(KNOWN_ISSUES.cartUnknownProductReturns404) }, async ({ api }) => {
     test.fail();
-    const response = await api.cart.replace([{ productId: 'does-not-exist', quantity: 1 }]);
+    const response = await api.cart.replace([{ productId: UNKNOWN_PRODUCT_ID, quantity: 1 }]);
 
     expect(response.status()).toBe(422);
   });

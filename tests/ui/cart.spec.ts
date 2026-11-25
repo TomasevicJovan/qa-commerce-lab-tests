@@ -1,8 +1,8 @@
 import { test, expect } from '@core/fixtures';
 import { HomePage, ProductListPage, CheckoutPage } from '@pages/index';
-import { PRODUCTS } from '@core/test-data';
+import { API_ERRORS, AUTH_TEXT, CART_TEXT, CHECKOUT_TEXT, LIMITS, PRODUCTS, TOTALS_TEXT } from '@data/index';
 import { drainStockTo, setCart } from '@core/flows/order-flow';
-import { formatUsd } from '@core/pricing';
+import { calculateTotals, formatUsd } from '@core/pricing';
 import { createApiClients } from '@api/index';
 
 const { arcHeadphones, orbitLamp, stillMug, pebbleClock, novaChair, noteJournal, fieldBackpack } = PRODUCTS;
@@ -11,19 +11,19 @@ test.describe('Cart', { tag: '@cart' }, () => {
   test.describe('adding products', () => {
     test('CART-001 Add to bag adds the product', { tag: '@smoke' }, async ({ signedInPage: page }) => {
       const list = new ProductListPage(page);
-      await list.goto({ q: 'headphones' });
+      await list.goto({ q: arcHeadphones.name });
 
       await list.grid.addToBag(arcHeadphones.name);
 
       await expect(list.header.bagCount).toHaveText('1');
-      await list.notifications.expectShown('success', { title: 'Added to your bag', message: `${arcHeadphones.name} was added to your bag.` });
+      await list.notifications.expectShown('success', { title: CART_TEXT.notifications.added.title, message: CART_TEXT.notifications.added.message(arcHeadphones.name) });
     });
 
     test('CART-002 Adding the same product again increases its quantity', { tag: '@regression' }, async ({ signedInPage: page, api }) => {
       const list = new ProductListPage(page);
       await setCart(api, [{ productId: arcHeadphones.id, quantity: 1 }]);
       await page.reload();
-      await list.goto({ q: 'headphones' });
+      await list.goto({ q: arcHeadphones.name });
 
       await list.grid.addToBag(arcHeadphones.name);
       await expect(list.header.bagCount).toHaveText('2');
@@ -39,21 +39,21 @@ test.describe('Cart', { tag: '@cart' }, () => {
 
       await list.goto({ q: fieldBackpack.name });
 
-      await expect(list.grid.stock(fieldBackpack.name)).toHaveText('Sold out');
+      await expect(list.grid.stock(fieldBackpack.name)).toHaveText(CART_TEXT.soldOut);
       await expect(list.grid.addToBagButton(fieldBackpack.name)).toBeDisabled();
     });
 
     test('CART-004 Quantity cannot exceed 10', { tag: '@regression' }, async ({ signedInPage: page, api }) => {
       const list = new ProductListPage(page);
-      await setCart(api, [{ productId: stillMug.id, quantity: 10 }]);
+      await setCart(api, [{ productId: stillMug.id, quantity: LIMITS.cartQuantity.max }]);
       await page.reload();
       await list.goto({ q: stillMug.name });
 
       await list.grid.addToBag(stillMug.name);
 
-      await list.notifications.expectShown('error', { title: 'Could not add to bag', message: 'Unique products with quantities 1–10 required' });
-      await expect(list.header.bagCount).toHaveText('10');
-      expect(await (await api.cart.get()).json()).toEqual([{ productId: stillMug.id, quantity: 10 }]);
+      await list.notifications.expectShown('error', { title: CART_TEXT.notifications.notAdded.title, message: API_ERRORS.cart.invalidItems });
+      await expect(list.header.bagCount).toHaveText(String(LIMITS.cartQuantity.max));
+      expect(await (await api.cart.get()).json()).toEqual([{ productId: stillMug.id, quantity: LIMITS.cartQuantity.max }]);
     });
   });
 
@@ -65,7 +65,7 @@ test.describe('Cart', { tag: '@cart' }, () => {
 
       await home.header.openBag();
 
-      await expect(home.bag.title).toHaveText('Your shopping bag');
+      await expect(home.bag.title).toHaveText(CART_TEXT.title);
       await expect(home.bag.lines).toHaveCount(2);
       await expect(home.bag.line(arcHeadphones.name)).toContainText(formatUsd(arcHeadphones.price));
       await expect(home.bag.quantityOf(arcHeadphones.name)).toHaveText('1');
@@ -80,10 +80,9 @@ test.describe('Cart', { tag: '@cart' }, () => {
 
       await home.header.openBag();
 
-      const chairPrice = home.bag.line(novaChair.name).locator('.cart-detail p');
-      await expect(chairPrice).toHaveText(`${formatUsd(novaChair.price)} ${formatUsd(novaChair.compareAtPrice!)}`);
-      await expect(chairPrice.locator('s')).toHaveText(formatUsd(novaChair.compareAtPrice!));
-      await expect(home.bag.line(noteJournal.name).locator('.cart-detail p')).toHaveText(`${formatUsd(noteJournal.price)} · Free shipping`);
+      await expect(home.bag.priceOf(novaChair.name)).toHaveText(`${formatUsd(novaChair.price)} ${formatUsd(novaChair.compareAtPrice!)}`);
+      await expect(home.bag.originalPriceOf(novaChair.name)).toHaveText(formatUsd(novaChair.compareAtPrice!));
+      await expect(home.bag.priceOf(noteJournal.name)).toHaveText(CART_TEXT.lineFreeShipping(noteJournal.price));
     });
 
     test('CART-012 Plus increases the quantity and updates the totals', { tag: '@regression' }, async ({ signedInPage: page, api }) => {
@@ -95,8 +94,9 @@ test.describe('Cart', { tag: '@cart' }, () => {
       await home.bag.increase(pebbleClock.name);
 
       await expect(home.bag.quantityOf(pebbleClock.name)).toHaveText('2');
-      await expect(home.bag.totals.value('Subtotal')).toHaveText('$90.00');
-      await expect(home.bag.totals.value('Total')).toHaveText('$97.00');
+      const expected = calculateTotals([{ unitPrice: pebbleClock.price, quantity: 2 }]);
+      await expect(home.bag.totals.value(TOTALS_TEXT.subtotal)).toHaveText(formatUsd(expected.subtotal));
+      await expect(home.bag.totals.value(TOTALS_TEXT.total)).toHaveText(formatUsd(expected.total));
       await expect(home.header.bagCount).toHaveText('2');
     });
 
@@ -109,8 +109,9 @@ test.describe('Cart', { tag: '@cart' }, () => {
       await home.bag.decrease(pebbleClock.name);
 
       await expect(home.bag.quantityOf(pebbleClock.name)).toHaveText('1');
-      await expect(home.bag.totals.value('Subtotal')).toHaveText('$45.00');
-      await expect(home.bag.totals.value('Total')).toHaveText('$52.00');
+      const expected = calculateTotals([{ unitPrice: pebbleClock.price, quantity: 1 }]);
+      await expect(home.bag.totals.value(TOTALS_TEXT.subtotal)).toHaveText(formatUsd(expected.subtotal));
+      await expect(home.bag.totals.value(TOTALS_TEXT.total)).toHaveText(formatUsd(expected.total));
       await expect(home.header.bagCount).toHaveText('1');
     });
 
@@ -124,7 +125,7 @@ test.describe('Cart', { tag: '@cart' }, () => {
 
       await expect(home.bag.line(pebbleClock.name)).toHaveCount(0);
       await expect(home.bag.lines).toHaveCount(1);
-      await home.notifications.expectShown('info', { message: `${pebbleClock.name} was removed from your bag.` });
+      await home.notifications.expectShown('info', { message: CART_TEXT.notifications.removed.message(pebbleClock.name) });
       await expect(home.header.bagCount).toHaveText('1');
     });
 
@@ -147,10 +148,11 @@ test.describe('Cart', { tag: '@cart' }, () => {
 
       await home.header.openBag();
 
-      await expect(home.bag.totals.value('Subtotal')).toHaveText('$129.00');
-      await expect(home.bag.totals.value('Discount')).toHaveText('−$0.00');
-      await expect(home.bag.totals.value('Shipping')).toHaveText('$7.00');
-      await expect(home.bag.totals.value('Total')).toHaveText('$136.00');
+      const expected = calculateTotals([{ unitPrice: arcHeadphones.price, quantity: 1 }]);
+      await expect(home.bag.totals.value(TOTALS_TEXT.subtotal)).toHaveText(formatUsd(expected.subtotal));
+      await expect(home.bag.totals.value(TOTALS_TEXT.discount)).toHaveText(TOTALS_TEXT.minus(expected.discount));
+      await expect(home.bag.totals.value(TOTALS_TEXT.shipping)).toHaveText(formatUsd(expected.shipping));
+      await expect(home.bag.totals.value(TOTALS_TEXT.total)).toHaveText(formatUsd(expected.total));
     });
 
     test('CART-017 Continue to checkout opens the checkout page', { tag: '@smoke' }, async ({ signedInPage: page, api }) => {
@@ -164,7 +166,7 @@ test.describe('Cart', { tag: '@cart' }, () => {
 
       await expect(home.bag.root).not.toBeVisible();
       await expect(page).toHaveURL(/#checkout$/);
-      await expect(checkout.heading).toHaveText('Checkout');
+      await expect(checkout.heading).toHaveText(CHECKOUT_TEXT.heading);
     });
 
     test('CART-018 Bag closes with × and with a click outside', { tag: '@regression' }, async ({ signedInPage: page, api }) => {
@@ -223,7 +225,7 @@ test.describe('Cart', { tag: '@cart' }, () => {
       await home.header.openSignIn();
       await home.authDialog.signIn(customerB.email, customerB.password);
 
-      await expect(home.header.accountButton).toHaveText(`${customerB.name} ▾`);
+      await expect(home.header.accountButton).toHaveText(AUTH_TEXT.accountButton(customerB.name));
       await expect(home.header.bagCount).toHaveText('0');
       await home.header.openBag();
       await expect(home.bag.emptyState).toBeVisible();

@@ -1,6 +1,7 @@
 import { test, expect } from '@core/fixtures';
 import { expectMatchesContract } from '@core/schema-validator';
 import type { LabConfig, LabStatus } from '@api/types';
+import { LAB } from '@data/index';
 
 const SERVICES = ['broker', 'identity', 'catalog', 'orders', 'inventory', 'payments'];
 
@@ -15,7 +16,7 @@ const BASELINE: LabConfig = {
   duplicateEvents: false,
   stalePrice: false,
   rateLimit: false,
-  sessionSeconds: 3600,
+  sessionSeconds: LAB.normalSessionSeconds,
 };
 
 // Runs before the api and ui projects. If it fails, they are skipped instead of failing for unrelated reasons.

@@ -1,6 +1,7 @@
 import { test, expect } from '@core/fixtures';
 import { ProductListPage } from '@pages/index';
-import { PRODUCTS } from '@core/test-data';
+import { LIST_TEXT, PRODUCTS } from '@data/index';
+import { SEARCHES } from '@data/cases/search';
 
 // Locator mode is a global lab switch, so this test runs alone in the serial "lab-scenarios" project.
 test.describe('Product list and product card', { tag: '@product-list' }, () => {
@@ -9,12 +10,12 @@ test.describe('Product list and product card', { tag: '@product-list' }, () => {
     const { orbitLamp } = PRODUCTS;
     await lab.set({ locatorMode: 'dynamic' });
     await page.reload();
-    await list.goto({ q: 'lamp' }); // keeps Orbit Desk Lamp on page 1 whatever the sort
+    await list.goto({ q: SEARCHES.lamps.term }); // keeps Orbit Desk Lamp on page 1 whatever the sort
     const card = list.grid.card(orbitLamp.name);
     await expect(card).not.toHaveAttribute('data-testid');
     const classBefore = await card.getAttribute('class');
 
-    await list.sortBy('Price: low to high');
+    await list.sortBy(LIST_TEXT.sort.priceLowHigh);
     await expect(card).toBeVisible();
     expect(await card.getAttribute('class'), 'the card gets a new generated class').not.toBe(classBefore);
     await expect(list.grid.cards.and(page.locator('[data-testid]'))).toHaveCount(0);

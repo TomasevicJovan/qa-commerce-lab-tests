@@ -1,13 +1,16 @@
 import { test, expect } from '@core/fixtures';
 import { buildCredentials } from '@core/factories/user-factory';
 import { expectMatchesContract } from '@core/schema-validator';
+import { random } from '@core/random-data';
 import { config } from '@core/config';
 import { createApiClients } from '@api/index';
+import { API_ERRORS } from '@data/index';
+import { INVALID_REGISTRATIONS, PASSWORD, differentlyTyped } from '@data/cases/auth';
 import type { ApiError, Session, User } from '@api/types';
 
 test.describe('Registration and sign-in', { tag: ['@auth', '@api'] }, () => {
   test('AUTH-040 Register returns a session', { tag: '@smoke' }, async ({ anonApi }) => {
-    const response = await anonApi.auth.register(buildCredentials({ password: 'Secret123' }));
+    const response = await anonApi.auth.register(buildCredentials());
 
     expect(response.status()).toBe(201);
     await expectMatchesContract(response, 'post', '/auth/register');
@@ -16,34 +19,27 @@ test.describe('Registration and sign-in', { tag: ['@auth', '@api'] }, () => {
     expect(session.expiresAt).toBeGreaterThan(Date.now());
   });
 
-  const INVALID = [
-    { name: 'missing name', body: { name: undefined } },
-    { name: 'name of spaces only', body: { name: '   ' } },
-    { name: 'email not-an-email', body: { email: 'not-an-email' } },
-    { name: 'password of 7 characters', body: { password: 'Secret1' } },
-    { name: 'password of 129 characters', body: { password: 'a'.repeat(129) } },
-  ];
-  for (const { name, body } of INVALID) {
+  for (const { name, change } of INVALID_REGISTRATIONS) {
     test(`AUTH-041 Invalid registration returns 422: ${name}`, { tag: '@regression' }, async ({ anonApi }) => {
-      const response = await anonApi.auth.register({ ...buildCredentials(), ...body });
+      const response = await anonApi.auth.register({ ...buildCredentials(), ...change() });
 
       expect(response.status()).toBe(422);
-      expect(((await response.json()) as ApiError).error).toBe('Name, valid email and password of 8–128 characters required');
+      expect(((await response.json()) as ApiError).error).toBe(API_ERRORS.auth.invalidRegistration);
     });
   }
 
-  test('AUTH-042 Passwords of 8 and 128 characters are accepted', { tag: '@regression' }, async ({ anonApi }) => {
-    for (const password of ['Secret12', 'a'.repeat(128)]) {
-      const response = await anonApi.auth.register(buildCredentials({ password }));
-      expect(response.status(), `${password.length} characters`).toBe(201);
+  test(`AUTH-042 Passwords of ${PASSWORD.min} and ${PASSWORD.max} characters are accepted`, { tag: '@regression' }, async ({ anonApi }) => {
+    for (const length of [PASSWORD.min, PASSWORD.max]) {
+      const response = await anonApi.auth.register(buildCredentials({ password: random.password(length) }));
+      expect(response.status(), `${length} characters`).toBe(201);
     }
   });
 
   test('AUTH-043 Duplicate email returns 409', { tag: '@regression' }, async ({ anonApi }) => {
-    const response = await anonApi.auth.register(buildCredentials({ email: ' QA@EXAMPLE.COM ' }));
+    const response = await anonApi.auth.register(buildCredentials({ email: differentlyTyped(config.demoUser.email) }));
 
     expect(response.status()).toBe(409);
-    expect(((await response.json()) as ApiError).error).toBe('Email already registered');
+    expect(((await response.json()) as ApiError).error).toBe(API_ERRORS.auth.emailTaken);
   });
 
   test('AUTH-044 Every sign-in issues a new token', { tag: '@regression' }, async ({ anonApi, request }) => {
@@ -59,12 +55,12 @@ test.describe('Registration and sign-in', { tag: ['@auth', '@api'] }, () => {
   });
 
   test('AUTH-045 Wrong password and unknown email return the same 401', { tag: '@regression' }, async ({ anonApi }) => {
-    const wrongPassword = await anonApi.auth.login({ email: config.demoUser.email, password: 'WrongPassword1!' });
-    const unknownEmail = await anonApi.auth.login({ email: 'nobody@example.com', password: config.demoUser.password });
+    const wrongPassword = await anonApi.auth.login({ email: config.demoUser.email, password: random.password() });
+    const unknownEmail = await anonApi.auth.login({ email: random.email(), password: config.demoUser.password });
 
     for (const response of [wrongPassword, unknownEmail]) {
       expect(response.status()).toBe(401);
-      expect(await response.text()).toBe('{"error":"Invalid email or password"}');
+      expect(await response.text()).toBe(JSON.stringify({ error: API_ERRORS.auth.invalidCredentials }));
     }
   });
 
@@ -76,7 +72,7 @@ test.describe('Registration and sign-in', { tag: ['@auth', '@api'] }, () => {
 
     const anonymous = await anonApi.auth.me();
     expect(anonymous.status()).toBe(401);
-    expect(await anonymous.json()).toEqual({ error: 'Session expired. Please sign in.' });
+    expect(await anonymous.json()).toEqual({ error: API_ERRORS.auth.sessionExpired });
   });
 
   test('AUTH-047 Logout revokes only the current token', { tag: '@regression' }, async ({ anonApi, request }) => {

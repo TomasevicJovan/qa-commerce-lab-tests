@@ -9,9 +9,11 @@
  */
 import type { CardBrand } from '@api/types';
 
-export const FREE_SHIPPING_THRESHOLD = 15_000;
-export const SHIPPING_FEE = 700;
-export const VALID_COUPON = 'SAVE10';
+import { COUPONS, SHIPPING } from '@data/promotions';
+
+export const FREE_SHIPPING_THRESHOLD = SHIPPING.freeFrom;
+export const SHIPPING_FEE = SHIPPING.flatFee;
+export const VALID_COUPON = COUPONS.save10;
 
 export interface PricedLine {
   unitPrice: number;

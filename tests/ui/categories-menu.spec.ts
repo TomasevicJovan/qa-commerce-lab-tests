@@ -1,7 +1,7 @@
 import { test, expect } from '@core/fixtures';
 import type { Page } from '@playwright/test';
 import { HomePage, ProductListPage } from '@pages/index';
-import { CATALOG, CATEGORY_TREE, DEMO_NAME, SUBCATEGORIES } from '@core/test-data';
+import { AUTH_TEXT, CATALOG, CATEGORIES_TEXT, CATEGORY, CATEGORY_TREE, DEMO_ACCOUNT, LIST_TEXT, SUBCATEGORIES, SUBCATEGORY } from '@data/index';
 import { KNOWN_ISSUES, issue } from '@core/known-issues';
 
 async function openMenu(page: Page): Promise<HomePage> {
@@ -22,8 +22,10 @@ async function openCategoryFromMenu(page: Page, category: string): Promise<Produ
   return list;
 }
 
-const subcategoryEntries = (category: string) =>
-  CATEGORY_TREE.find((c) => c.name === category)!.subcategories.map((s) => `${s.name} ${s.count}`);
+const subcategoryEntries = (category: { subcategories: { name: string; count: number }[] }) =>
+  category.subcategories.map((s) => CATEGORIES_TEXT.entry(s.name, s.count));
+const { homeLiving, sportsOutdoors, pets } = CATEGORY;
+const firstCategory = CATEGORY_TREE[0]!;
 
 test.describe('All categories dropdown', { tag: '@categories-menu' }, () => {
   test.describe('menu', () => {
@@ -31,39 +33,39 @@ test.describe('All categories dropdown', { tag: '@categories-menu' }, () => {
       const home = await openMenu(page);
 
       await expect(home.header.categories.toggle).toHaveAttribute('aria-expanded', 'true');
-      expect(await home.header.categories.categoryEntries()).toEqual(CATEGORY_TREE.map((c) => `${c.name} ${c.count}`));
-      await expect(home.header.categories.root.locator('.mega-top li').last()).toHaveText('All categories →');
+      expect(await home.header.categories.categoryEntries()).toEqual(CATEGORY_TREE.map((c) => CATEGORIES_TEXT.entry(c.name, c.count)));
+      await expect(home.header.categories.allCategoriesLink).toHaveText(CATEGORIES_TEXT.allCategoriesLink);
     });
 
     test('CATM-002 First category is selected by default', { tag: '@regression' }, async ({ page }) => {
       const menu = (await openMenu(page)).header.categories;
 
-      await expect(menu.category('Electronics')).toHaveClass(/active/);
-      await expect(menu.shopAll('Electronics')).toBeVisible();
-      expect(await menu.panelEntries()).toEqual(subcategoryEntries('Electronics'));
+      await expect(menu.category(firstCategory.name)).toHaveClass(/active/);
+      await expect(menu.shopAll(firstCategory.name)).toBeVisible();
+      expect(await menu.panelEntries()).toEqual(subcategoryEntries(firstCategory));
     });
 
     test('CATM-003 Hovering a category shows its subcategories with counts', { tag: '@regression' }, async ({ page }) => {
       const menu = (await openMenu(page)).header.categories;
 
-      await menu.category('Sports & Outdoors').hover();
+      await menu.category(sportsOutdoors.name).hover();
 
-      await expect(menu.category('Sports & Outdoors')).toHaveClass(/active/);
-      await expect(menu.category('Electronics')).not.toHaveClass(/active/);
-      await expect(menu.shopAll('Sports & Outdoors')).toBeVisible();
-      expect(await menu.panelEntries()).toEqual(subcategoryEntries('Sports & Outdoors'));
+      await expect(menu.category(sportsOutdoors.name)).toHaveClass(/active/);
+      await expect(menu.category(firstCategory.name)).not.toHaveClass(/active/);
+      await expect(menu.shopAll(sportsOutdoors.name)).toBeVisible();
+      expect(await menu.panelEntries()).toEqual(subcategoryEntries(sportsOutdoors));
     });
 
     test('CATM-009 "Shop all <category>" opens the whole category', { tag: '@regression' }, async ({ page }) => {
       const menu = (await openMenu(page)).header.categories;
       const list = new ProductListPage(page);
 
-      await menu.category('Home & Living').hover();
-      await menu.shopAll('Home & Living').click();
+      await menu.category(homeLiving.name).hover();
+      await menu.shopAll(homeLiving.name).click();
 
       await list.waitForProducts();
-      await expect(list.heading).toHaveText('Home & Living');
-      await expect(list.resultCount).toHaveText('17 products');
+      await expect(list.heading).toHaveText(homeLiving.name);
+      await expect(list.resultCount).toHaveText(LIST_TEXT.resultCount(homeLiving.count));
     });
 
     test('CATM-010 "All categories →" opens the categories page', { tag: '@regression' }, async ({ page }) => {
@@ -72,17 +74,17 @@ test.describe('All categories dropdown', { tag: '@categories-menu' }, () => {
       await home.header.categories.allCategoriesLink.click();
 
       await expect(page).toHaveURL(/#categories$/);
-      await expect(home.heading).toHaveText('All categories');
+      await expect(home.heading).toHaveText(CATEGORIES_TEXT.heading);
     });
 
     test('CATM-011 Menu closes after choosing a link', { tag: '@regression' }, async ({ page }) => {
       const home = await openMenu(page);
       const list = new ProductListPage(page);
 
-      await home.header.categories.subcategory('Gaming').click();
+      await home.header.categories.subcategory(SUBCATEGORY.gaming.name).click();
 
       await list.waitForProducts();
-      await expect(list.heading).toHaveText('Gaming');
+      await expect(list.heading).toHaveText(SUBCATEGORY.gaming.name);
       await expect(home.header.categories.root).toBeHidden();
     });
 
@@ -109,23 +111,24 @@ test.describe('All categories dropdown', { tag: '@categories-menu' }, () => {
 
     test('CATM-013 Keyboard moves between categories and subcategories', { tag: '@regression' }, async ({ page }) => {
       const menu = (await openMenu(page)).header.categories;
-      await menu.category('Electronics').focus();
+      const secondCategory = CATEGORY_TREE[1]!;
+      await menu.category(firstCategory.name).focus();
 
       await page.keyboard.press('ArrowDown');
-      await expect(menu.category('Home & Living')).toBeFocused();
-      expect(await menu.panelEntries()).toEqual(subcategoryEntries('Home & Living'));
+      await expect(menu.category(secondCategory.name)).toBeFocused();
+      expect(await menu.panelEntries()).toEqual(subcategoryEntries(secondCategory));
 
       await page.keyboard.press('ArrowRight');
-      await expect(menu.shopAll('Home & Living')).toBeFocused();
+      await expect(menu.shopAll(secondCategory.name)).toBeFocused();
 
       await page.keyboard.press('ArrowLeft');
-      await expect(menu.category('Home & Living')).toBeFocused();
+      await expect(menu.category(secondCategory.name)).toBeFocused();
     });
 
     test('CATM-014 Opening the account menu closes the categories menu', { tag: '@regression' }, async ({ demoPage: page }) => {
       const home = await openMenu(page);
 
-      await expect(home.header.accountButton).toHaveText(`${DEMO_NAME} ▾`);
+      await expect(home.header.accountButton).toHaveText(AUTH_TEXT.accountButton(DEMO_ACCOUNT.name));
       await home.header.accountButton.click();
 
       await expect(home.header.categories.root).toBeHidden();
@@ -142,11 +145,10 @@ test.describe('All categories dropdown', { tag: '@categories-menu' }, () => {
         await home.header.categories.category(category.name).click();
         await list.waitForProducts();
 
-        expect(await list.breadcrumbText()).toBe(`Home › All categories › ${category.name}`);
+        expect(await list.breadcrumbText()).toBe(LIST_TEXT.breadcrumb(category.name));
         await expect(list.heading).toHaveText(category.name);
-        await expect(list.resultCount).toHaveText(`${category.count} products`);
-        await expect(list.sortSelect).toHaveValue('');
-        await expect(list.sortSelect.locator('option:checked')).toHaveText('Featured');
+        await expect(list.resultCount).toHaveText(LIST_TEXT.resultCount(category.count));
+        await expect(list.selectedSort).toHaveText(LIST_TEXT.sort.featured);
         await expect(list.filterChip(category.name)).toBeVisible();
         await expect(list.clearAll).toBeVisible();
         const allowed = category.subcategories.map((s) => s.name);
@@ -159,39 +161,40 @@ test.describe('All categories dropdown', { tag: '@categories-menu' }, () => {
         const list = await openCategoryFromMenu(page, category.name);
 
         const chips = (await list.subcategoryChips.allTextContents()).map((t) => t.replace(/\s+/g, ' ').trim());
-        expect(chips).toEqual([`All ${category.name}`, ...category.subcategories.map((s) => `${s.name} ${s.count}`)]);
+        expect(chips).toEqual([LIST_TEXT.allSubcategoriesChip(category.name), ...subcategoryEntries(category)]);
         await expect(list.subcategoryChips.first()).toHaveClass(/active/);
       });
     }
 
     test('CATM-006 Clicking a subcategory chip narrows the list', { tag: '@regression' }, async ({ page }) => {
-      const list = await openCategoryFromMenu(page, 'Sports & Outdoors');
+      const cycling = SUBCATEGORY.cycling;
+      const list = await openCategoryFromMenu(page, cycling.category);
 
-      await list.subcategoryChip('Cycling').click();
-      await expect(list.heading).toHaveText('Cycling');
+      await list.subcategoryChip(cycling.name).click();
+      await expect(list.heading).toHaveText(cycling.name);
       await list.waitForProducts();
 
-      await expect(list.subcategoryChip('Cycling')).toHaveClass(/active/);
-      expect(await list.breadcrumbText()).toBe('Home › All categories › Sports & Outdoors › Cycling');
-      await expect(list.resultCount).toHaveText('4 products');
-      expect(await list.allSubcategoryLabels()).toEqual(Array(4).fill('Cycling'));
+      await expect(list.subcategoryChip(cycling.name)).toHaveClass(/active/);
+      expect(await list.breadcrumbText()).toBe(LIST_TEXT.breadcrumb(cycling.category, cycling.name));
+      await expect(list.resultCount).toHaveText(LIST_TEXT.resultCount(cycling.count));
+      expect(await list.allSubcategoryLabels()).toEqual(Array(cycling.count).fill(cycling.name));
     });
 
     test('CATM-007 Removing the category chip or Clear all shows all products', { tag: '@regression' }, async ({ page }) => {
       const list = new ProductListPage(page);
       const expectAllProducts = async () => {
-        await expect(list.heading).toHaveText('All products');
+        await expect(list.heading).toHaveText(LIST_TEXT.allProducts);
         await list.waitForProducts();
-        await expect(list.resultCount).toHaveText(`${CATALOG.totalProducts} products`);
+        await expect(list.resultCount).toHaveText(LIST_TEXT.resultCount(CATALOG.totalProducts));
         await expect(list.activeFilters).toHaveCount(0);
         await expect(list.subcategoryChips).toHaveCount(0);
       };
 
-      await list.goto({ category: 'Sports & Outdoors', subcategory: 'Cycling' });
-      await list.filterChip('Sports & Outdoors').click();
+      await list.goto({ category: SUBCATEGORY.cycling.category, subcategory: SUBCATEGORY.cycling.name });
+      await list.filterChip(SUBCATEGORY.cycling.category).click();
       await expectAllProducts();
 
-      await list.goto({ category: 'Sports & Outdoors' });
+      await list.goto({ category: sportsOutdoors.name });
       await list.clearAll.click();
       await expectAllProducts();
     });
@@ -206,8 +209,8 @@ test.describe('All categories dropdown', { tag: '@categories-menu' }, () => {
         await expect(list.heading).toHaveText(sub.name);
         await list.waitForProducts();
 
-        expect(await list.breadcrumbText()).toBe(`Home › All categories › ${sub.category} › ${sub.name}`);
-        await expect(list.resultCount).toHaveText(`${sub.count} products`);
+        expect(await list.breadcrumbText()).toBe(LIST_TEXT.breadcrumb(sub.category, sub.name));
+        await expect(list.resultCount).toHaveText(LIST_TEXT.resultCount(sub.count));
         await expect(list.subcategoryChip(sub.name)).toHaveClass(/active/);
         expect(await list.allSubcategoryLabels()).toEqual(Array(sub.count).fill(sub.name));
       });
@@ -218,8 +221,8 @@ test.describe('All categories dropdown', { tag: '@categories-menu' }, () => {
     test.fail();
     const list = new ProductListPage(page);
 
-    await list.goto({ category: 'Pets' });
+    await list.goto({ category: pets.name });
 
-    await expect(list.subcategoryChips).toHaveText(['All Pets', 'Dogs 3', 'Cats 3'], { timeout: 3_000 });
+    await expect(list.subcategoryChips).toHaveText([LIST_TEXT.allSubcategoriesChip(pets.name), ...subcategoryEntries(pets)], { timeout: 3_000 });
   });
 });
