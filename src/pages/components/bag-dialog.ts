@@ -7,15 +7,17 @@ export class BagDialog {
   readonly title: Locator;
   readonly lines: Locator;
   readonly emptyState: Locator;
-  readonly continueButton: Locator;
+  readonly continueLink: Locator;
+  readonly closeButton: Locator;
   readonly totals: Totals;
 
   constructor(private readonly page: Page) {
-    this.root = page.getByRole('dialog');
+    this.root = page.locator('dialog#dialog');
     this.title = this.root.getByRole('heading', { level: 2 });
     this.lines = this.root.locator('.cart-item');
     this.emptyState = this.root.getByText('Your bag is waiting for a good find.');
-    this.continueButton = this.root.getByRole('button', { name: 'Continue to checkout →' });
+    this.continueLink = this.root.getByRole('link', { name: 'Continue to checkout →' });
+    this.closeButton = this.root.getByRole('button', { name: 'Close dialog' });
     this.totals = new Totals(this.root);
   }
 
@@ -36,6 +38,6 @@ export class BagDialog {
   }
 
   async continueToCheckout(): Promise<void> {
-    await this.continueButton.click();
+    await this.continueLink.click();
   }
 }

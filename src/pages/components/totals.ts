@@ -1,17 +1,21 @@
 import type { Locator } from '@playwright/test';
 
-export type TotalsRow = 'Subtotal' | 'Discount' | 'Shipping' | 'Total';
+export type TotalsRow = 'Subtotal' | 'Coupon SAVE10' | 'Mastercard 10%' | 'Discount' | 'Shipping' | 'Total';
 
-/** Price summary block rendered in both the bag and the checkout dialog. */
+/** Price summary block rendered in the bag, at checkout and on the order page. */
 export class Totals {
-  constructor(private readonly scope: Locator) {}
+  readonly root: Locator;
+
+  constructor(scope: Locator) {
+    this.root = scope.locator('.totals');
+  }
+
+  row(name: TotalsRow): Locator {
+    return this.root.locator(':scope > div').filter({ has: this.root.page().locator('span:first-child', { hasText: new RegExp(`^${name.replace(/[%]/g, '\\$&')}$`) }) });
+  }
 
   /** Value cell of a row, e.g. value('Shipping') -> "$7.00" or "On us". */
-  value(row: TotalsRow): Locator {
-    return this.scope
-      .locator('.totals > div')
-      .filter({ has: this.scope.page().getByText(row, { exact: true }) })
-      .locator('span')
-      .last();
+  value(name: TotalsRow): Locator {
+    return this.row(name).locator('span').last();
   }
 }

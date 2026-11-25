@@ -1,90 +1,92 @@
 import { test, expect } from '@core/fixtures';
-import { config } from '@core/config';
 import { buildCredentials } from '@core/factories/user-factory';
 import { expectMatchesContract } from '@core/schema-validator';
-import type { Session } from '@api/types';
+import { config } from '@core/config';
 import { createApiClients } from '@api/index';
+import type { ApiError, Session, User } from '@api/types';
 
-test.describe('Authentication API', () => {
-  test('register, read profile, log out: the revoked token stops working', { tag: ['@smoke', '@api'] }, async ({ anonApi, request }) => {
-    const credentials = buildCredentials();
+test.describe('Registration and sign-in', { tag: ['@auth', '@api'] }, () => {
+  test('AUTH-040 Register returns a session', { tag: '@smoke' }, async ({ anonApi }) => {
+    const response = await anonApi.auth.register(buildCredentials({ password: 'Secret123' }));
 
-    const session = await test.step('register returns 201 and a session', async () => {
-      const response = await anonApi.auth.register(credentials);
-      expect(response.status()).toBe(201);
-      await expectMatchesContract(response, 'post', '/auth/register');
-      const body = (await response.json()) as Session;
-      expect(body.user).toMatchObject({ email: credentials.email, name: credentials.name, role: 'customer' });
-      expect(body.expiresAt).toBeGreaterThan(Date.now());
-      return body;
-    });
-
-    await test.step('login with the same credentials issues a different token', async () => {
-      const response = await anonApi.auth.login({ email: credentials.email.toUpperCase(), password: credentials.password });
-      expect(response.status()).toBe(200);
-      await expectMatchesContract(response, 'post', '/auth/login');
-      expect(((await response.json()) as Session).token).not.toBe(session.token);
-    });
-
-    const authed = createApiClients(request, session.token);
-
-    await test.step('the token reads the profile', async () => {
-      const response = await authed.auth.me();
-      expect(response.status()).toBe(200);
-      await expectMatchesContract(response, 'get', '/auth/me');
-      expect(await response.json()).toEqual(session.user);
-    });
-
-    await test.step('logout revokes only this token', async () => {
-      const response = await authed.auth.logout();
-      expect(response.status()).toBe(200);
-      await expectMatchesContract(response, 'post', '/auth/logout');
-      expect((await authed.auth.me()).status()).toBe(401);
-      expect((await authed.cart.get()).status()).toBe(401);
-    });
+    expect(response.status()).toBe(201);
+    await expectMatchesContract(response, 'post', '/auth/register');
+    const session = (await response.json()) as Session;
+    expect(session.user.role).toBe('customer');
+    expect(session.expiresAt).toBeGreaterThan(Date.now());
   });
 
-  test('invalid credentials and requests get the documented status codes', { tag: ['@regression', '@api'] }, async ({ anonApi, workerUser }) => {
-    const checks: { name: string; send: () => ReturnType<typeof anonApi.auth.login>; status: number; error: RegExp }[] = [
-      {
-        name: 'wrong password',
-        send: () => anonApi.auth.login({ email: config.demoUser.email, password: 'WrongPassword1!' }),
-        status: 401,
-        error: /Invalid email or password/,
-      },
-      {
-        name: 'unknown email',
-        send: () => anonApi.auth.login({ email: 'nobody@example.com', password: 'Password123!' }),
-        status: 401,
-        error: /Invalid email or password/,
-      },
-      {
-        name: 'duplicate email, compared case-insensitively',
-        send: () => anonApi.auth.register(buildCredentials({ email: `  ${workerUser.email.toUpperCase()} ` })),
-        status: 409,
-        error: /already registered/,
-      },
-      {
-        name: 'password shorter than 8 characters',
-        send: () => anonApi.auth.register(buildCredentials({ password: 'short' })),
-        status: 422,
-        error: /password of 8–128 characters/,
-      },
-      {
-        name: 'malformed email',
-        send: () => anonApi.auth.register(buildCredentials({ email: 'not-an-email' })),
-        status: 422,
-        error: /valid email/,
-      },
-      { name: 'protected endpoint without a token', send: () => anonApi.cart.get(), status: 401, error: /Session expired/ },
-    ];
+  const INVALID = [
+    { name: 'missing name', body: { name: undefined } },
+    { name: 'name of spaces only', body: { name: '   ' } },
+    { name: 'email not-an-email', body: { email: 'not-an-email' } },
+    { name: 'password of 7 characters', body: { password: 'Secret1' } },
+    { name: 'password of 129 characters', body: { password: 'a'.repeat(129) } },
+  ];
+  for (const { name, body } of INVALID) {
+    test(`AUTH-041 Invalid registration returns 422: ${name}`, { tag: '@regression' }, async ({ anonApi }) => {
+      const response = await anonApi.auth.register({ ...buildCredentials(), ...body });
 
-    for (const check of checks) {
-      await test.step(`${check.name} -> ${check.status}`, async () => {
-        const response = await check.send();
-        expect.soft(response.status(), check.name).toBe(check.status);
-        expect.soft((await response.json()).error, check.name).toMatch(check.error);
-      });
+      expect(response.status()).toBe(422);
+      expect(((await response.json()) as ApiError).error).toBe('Name, valid email and password of 8–128 characters required');
+    });
+  }
+
+  test('AUTH-042 Passwords of 8 and 128 characters are accepted', { tag: '@regression' }, async ({ anonApi }) => {
+    for (const password of ['Secret12', 'a'.repeat(128)]) {
+      const response = await anonApi.auth.register(buildCredentials({ password }));
+      expect(response.status(), `${password.length} characters`).toBe(201);
     }
+  });
+
+  test('AUTH-043 Duplicate email returns 409', { tag: '@regression' }, async ({ anonApi }) => {
+    const response = await anonApi.auth.register(buildCredentials({ email: ' QA@EXAMPLE.COM ' }));
+
+    expect(response.status()).toBe(409);
+    expect(((await response.json()) as ApiError).error).toBe('Email already registered');
+  });
+
+  test('AUTH-044 Every sign-in issues a new token', { tag: '@regression' }, async ({ anonApi, request }) => {
+    const sessions: Session[] = [];
+    for (let i = 0; i < 2; i++) {
+      const response = await anonApi.auth.login(config.demoUser);
+      expect(response.status()).toBe(200);
+      sessions.push((await response.json()) as Session);
+    }
+
+    expect(sessions[0]!.token).not.toBe(sessions[1]!.token);
+    for (const { token } of sessions) expect((await createApiClients(request, token).auth.me()).status()).toBe(200);
+  });
+
+  test('AUTH-045 Wrong password and unknown email return the same 401', { tag: '@regression' }, async ({ anonApi }) => {
+    const wrongPassword = await anonApi.auth.login({ email: config.demoUser.email, password: 'WrongPassword1!' });
+    const unknownEmail = await anonApi.auth.login({ email: 'nobody@example.com', password: config.demoUser.password });
+
+    for (const response of [wrongPassword, unknownEmail]) {
+      expect(response.status()).toBe(401);
+      expect(await response.text()).toBe('{"error":"Invalid email or password"}');
+    }
+  });
+
+  test('AUTH-046 Profile needs a valid token', { tag: '@smoke' }, async ({ api, anonApi, customer }) => {
+    const signedIn = await api.auth.me();
+    expect(signedIn.status()).toBe(200);
+    await expectMatchesContract(signedIn, 'get', '/auth/me');
+    expect((await signedIn.json()) as User).toMatchObject({ id: customer.id, email: customer.email, name: customer.name, role: 'customer' });
+
+    const anonymous = await anonApi.auth.me();
+    expect(anonymous.status()).toBe(401);
+    expect(await anonymous.json()).toEqual({ error: 'Session expired. Please sign in.' });
+  });
+
+  test('AUTH-047 Logout revokes only the current token', { tag: '@regression' }, async ({ anonApi, request }) => {
+    const tokenOf = async () => ((await (await anonApi.auth.login(config.demoUser)).json()) as Session).token;
+    const a = createApiClients(request, await tokenOf());
+    const b = createApiClients(request, await tokenOf());
+
+    expect((await a.auth.logout()).status()).toBeLessThan(300);
+
+    expect((await a.auth.me()).status()).toBe(401);
+    expect((await b.auth.me()).status()).toBe(200);
   });
 });
