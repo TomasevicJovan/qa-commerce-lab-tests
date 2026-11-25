@@ -1,16 +1,25 @@
 import { randomUUID } from 'node:crypto';
 import type { Address, CheckoutRequest, NewCard } from '@api/types';
-import { CARDS, type TestCard } from '@core/test-data';
+import { CARDS, type TestCard } from '@data/index';
+import { random } from '@core/random-data';
 
+/** Supported delivery countries, as the API expects them. */
+export const COUNTRIES = { bosnia: 'BA', germany: 'DE', unitedStates: 'US' } as const;
+
+/** A generated delivery address in Bosnia and Herzegovina. */
 export function buildAddress(overrides: Partial<Address> = {}): Address {
-  return {
-    name: 'Alex Tester',
-    line1: '12 Test Avenue',
-    city: 'Sarajevo',
-    postalCode: '71000',
-    country: 'BA',
-    ...overrides,
-  };
+  return { ...random.address(), country: COUNTRIES.bosnia, ...overrides };
+}
+
+/** The address as the order page shows it under "Deliver to". */
+export const formatAddress = (a: Address): string => `${a.name}${a.line1}${a.postalCode} ${a.city}, ${a.country}`;
+
+/** Expiry as MM/YY, `monthsFromNow` months from the current month (negative for the past). */
+export function expiryIn(monthsFromNow: number): string {
+  const date = new Date();
+  date.setDate(1);
+  date.setMonth(date.getMonth() + monthsFromNow);
+  return `${String(date.getMonth() + 1).padStart(2, '0')}/${String(date.getFullYear() % 100).padStart(2, '0')}`;
 }
 
 /** A card expiring at the end of next year, so it never expires during a run. */
@@ -19,8 +28,13 @@ export function futureExpiry(): string {
   return `12/${String(year).padStart(2, '0')}`;
 }
 
+/** A new card as typed on the checkout page: generated holder, test card number, valid expiry. */
+export function cardForm(testCard: TestCard = CARDS.visa, overrides: { holder?: string; expiry?: string; cvc?: string; number?: string; save?: boolean } = {}) {
+  return { holder: random.cardholder(), number: testCard.number, expiry: futureExpiry(), cvc: testCard.cvc, ...overrides };
+}
+
 export function buildCard(testCard: TestCard = CARDS.visa, overrides: Partial<NewCard> = {}): NewCard {
-  return { holder: 'Alex Tester', number: testCard.digits, expiry: futureExpiry(), cvc: testCard.cvc, ...overrides };
+  return { holder: random.cardholder(), number: testCard.digits, expiry: futureExpiry(), cvc: testCard.cvc, ...overrides };
 }
 
 type PaymentPart = Pick<CheckoutRequest, 'paymentMethod' | 'savedCardId' | 'card' | 'saveCard'>;

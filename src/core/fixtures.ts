@@ -6,9 +6,12 @@ import { config } from '@core/config';
 import { registerUser, type RegisteredUser } from '@core/factories/user-factory';
 import { buildCard } from '@core/factories/checkout-factory';
 import { LabControls } from '@core/lab-controls';
-import type { TestCard } from '@core/test-data';
+import { runSeed, seedForTest } from '@core/random-data';
+import type { TestCard } from '@data/index';
 
 interface TestFixtures {
+  /** Seeds generated data for this test (automatic). The run seed is added to the test's annotations. */
+  testDataSeed: number;
   /** A new customer for every test, so bags, wishlists and saved cards never mix. */
   customer: RegisteredUser;
   /** API clients authenticated as the test's customer. */
@@ -33,7 +36,7 @@ interface TestFixtures {
  * The storefront keeps its token in sessionStorage (not cookies), which storageState does not
  * persist, so the API token is injected before the app boots instead of signing in through the UI.
  */
-async function signIn(page: Page, token: string): Promise<void> {
+export async function signInWithToken(page: Page, token: string): Promise<void> {
   await page.addInitScript((value) => {
     // Inject only once per tab, so a sign-out inside the test is not undone on the next navigation.
     if (sessionStorage.getItem('qa-test-auth-injected')) return;
@@ -49,7 +52,16 @@ async function demoToken(request: APIRequestContext): Promise<string> {
 }
 
 export const test = base.extend<TestFixtures>({
-  customer: async ({ request }, use) => {
+  testDataSeed: [
+    async ({}, use, testInfo) => {
+      const seed = seedForTest(`${testInfo.titlePath.join(' > ')} #${testInfo.repeatEachIndex}`);
+      testInfo.annotations.push({ type: 'test data', description: `TEST_SEED=${runSeed()} (test seed ${seed})` });
+      await use(seed);
+    },
+    { auto: true },
+  ],
+
+  customer: async ({ request, testDataSeed: _ }, use) => {
     await use(await registerUser(request));
   },
 
@@ -65,7 +77,7 @@ export const test = base.extend<TestFixtures>({
     await use(createApiClients(request, await demoToken(request)));
   },
 
-  createUser: async ({ request }, use) => {
+  createUser: async ({ request, testDataSeed: _ }, use) => {
     await use((overrides) => registerUser(request, overrides));
   },
 
@@ -87,12 +99,12 @@ export const test = base.extend<TestFixtures>({
   },
 
   signedInPage: async ({ page, customer }, use) => {
-    await signIn(page, customer.token);
+    await signInWithToken(page, customer.token);
     await use(page);
   },
 
   demoPage: async ({ page, request }, use) => {
-    await signIn(page, await demoToken(request));
+    await signInWithToken(page, await demoToken(request));
     await use(page);
   },
 });

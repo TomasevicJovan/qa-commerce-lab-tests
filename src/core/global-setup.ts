@@ -33,4 +33,5 @@ export default async function globalSetup(_: FullConfig): Promise<void> {
   if (!reset.ok) throw new Error(`Could not restore lab defaults: HTTP ${reset.status}`);
 
   console.log(`Lab ready at ${config.baseUrl} (${body.transport} transport), baseline settings restored.`);
+  console.log(`Test data seed: TEST_SEED=${process.env.TEST_SEED} (set it to repeat this run's generated data).`);
 }

@@ -1,5 +1,9 @@
 import { defineConfig, devices } from '@playwright/test';
 import { config } from './src/core/config';
+import { newRunSeed } from './src/core/random-data';
+
+// One seed per run for generated test data. Workers inherit it; TEST_SEED=<seed> repeats a run's data.
+if (!process.env.TEST_SEED) process.env.TEST_SEED = String(newRunSeed());
 
 /**
  * Lab scenario switches (payment failures, paused consumers, stale prices, ...) are global:
@@ -28,6 +32,7 @@ const grepInvert = cliRegex(['--grep-invert']);
 
 export default defineConfig({
   testDir: './tests',
+  metadata: { 'Test data seed': process.env.TEST_SEED },
   globalSetup: './src/core/global-setup.ts',
   fullyParallel: true,
   forbidOnly: config.isCI,
