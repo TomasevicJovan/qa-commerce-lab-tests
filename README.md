@@ -66,6 +66,16 @@ The tests found four real defects in the shop. Each one is reported as an issue 
 ## How the tests are built
 
 - **Test data is created through the API.** Every test gets its own new customer. The bag, the wishlist and saved cards are prepared through the API, and the browser is used only for what the test checks. Tests do not depend on each other and run in parallel.
+- **No test data is written inside the tests.** Data comes from four places, each with its own rule:
+
+  | Kind | Where | Example |
+  |---|---|---|
+  | Secrets and environment | `.env` locally, repository secrets in CI; `.env.example` lists the names | Demo account email and password |
+  | Expected values (what the shop is supposed to do) | `src/data/`, in git, one file per area; tables for data-driven tests in `src/data/cases/` | Products and prices, test cards, coupons, limits, every message text |
+  | Values that only have to be valid | `src/core/random-data.ts` (Faker) | Customer names, emails, passwords, addresses, cardholders |
+  | State a test needs | Factories and fixtures, through the API | A new customer, a bag, saved cards, a placed order |
+
+  Random data is seeded. The run seed is printed at the start of every run and stored in the report; each test's seed is the run seed plus its title, so a test gets the same data no matter which worker runs it. `TEST_SEED=<seed> npm test` repeats a run with the same data. Boundary and invalid values (a 7-character password, a 13th month, a name of 101 characters) are part of the test design and stay fixed in `src/data/cases/`.
 - **An order accepted is not an order paid.** The shop answers `202 Accepted` and processes the payment in the background. Tests wait for the order to reach its final state (confirmed, cancelled or not completed) and check the payment, the stock and the events, including the case where a failed payment releases the reserved products.
 - **Prices are checked against our own calculation.** The pricing rules (SAVE10, 10% off for Mastercard, free shipping from $150 or when every product ships free) are written again in the tests and compared with the shop, on both sides of every limit.
 - **Every message is checked word for word.** Field errors, notifications and banners are compared with the exact text, as part of the test for the action, not as separate tests.
@@ -81,9 +91,11 @@ src/
   api/          One client per area (auth, catalog, cart, wishlist, cards, orders, payments, inventory, lab) and response types
   pages/        Page objects (home, product list, categories, checkout, order, orders, wishlist, help)
     components/ Header, categories menu, promotion bar, sign-in dialog, bag, notifications, product cards, totals
+  data/         Expected values, in git: catalog, cards, promotions, limits, messages, lab timings
+    cases/      Tables for data-driven tests: invalid inputs, boundaries, price combinations
   core/
     fixtures.ts         New customer per test, API clients, signed-in page, lab settings with automatic reset
-    test-data.ts        Products, categories, test cards, promotions: the expected values
+    random-data.ts      Seeded random values (Faker): names, emails, passwords, addresses
     pricing.ts          Our own calculation of discounts, shipping and totals
     factories/          Customers, addresses, cards, checkout requests
     flows/              Placing an order, waiting for its final state, stock checks
@@ -103,6 +115,7 @@ You need Node.js 24 and the [shop](https://github.com/TomasevicJovan/qa-commerce
 ```sh
 npm ci
 npx playwright install chromium
+cp .env.example .env    # then fill in the demo account (DEMO_EMAIL, DEMO_PASSWORD)
 npm test
 npm run report
 ```
@@ -117,7 +130,7 @@ npm run report
 | `npm run test:headed` | Everything, in a visible browser window |
 | `npm run typecheck` | TypeScript check |
 
-One feature: `npx playwright test --grep @checkout`. One file without preflight and scenarios: `npx playwright test tests/ui/cart.spec.ts --no-deps`. Optional settings (address, demo account, order timeout) are in `.env.example`.
+One feature: `npx playwright test --grep @checkout`. One file without preflight and scenarios: `npx playwright test tests/ui/cart.spec.ts --no-deps`. The demo account is required; the other settings in `.env.example` (address, order timeout, `TEST_SEED`) are optional.
 
 **Reset the shop between full runs.** A full run buys products, and the shop cannot restock. Before running everything again, reset the shop's data:
 
