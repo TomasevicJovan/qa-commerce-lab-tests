@@ -7,6 +7,16 @@ Test automation with **Playwright and TypeScript** for [qa-commerce-lab](https:/
 
 Every push to `main`, every pull request, every night and every change in the shop starts the shop in Docker with fresh data, runs the whole suite and publishes the [HTML report](https://tomasevicjovan.github.io/qa-commerce-lab-tests/).
 
+## Same shop, three test suites
+
+| Repository | Stack | What it is for |
+|---|---|---|
+| **qa-commerce-lab-tests** (this one) | TypeScript, Playwright | The detailed suite: 456 tests, every field and message, OpenAPI contract checks |
+| [qa-commerce-lab-tests-dotnet](https://github.com/TomasevicJovan/qa-commerce-lab-tests-dotnet) | C#, Selenium, Reqnroll | Business rules and shopping journeys in Gherkin |
+| [qa-commerce-lab-tests-java](https://github.com/TomasevicJovan/qa-commerce-lab-tests-java) | Java, Selenium, Cucumber | The same feature files as the C# repository, implemented in Java |
+
+This repository goes into detail: every field, every message and the API contract. The other two cover the business rules and the main shopping journeys in Gherkin. They share the same feature files, so one specification runs on two stacks.
+
 ## In numbers
 
 | | |
