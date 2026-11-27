@@ -54,7 +54,7 @@ export default defineConfig({
     {
       name: 'preflight',
       testDir: './tests/preflight',
-      testMatch: /.*\.setup\.ts/,
+      testMatch: '**/*.setup.ts',
       teardown: 'lab-scenarios',
     },
     {

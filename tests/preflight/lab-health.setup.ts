@@ -32,7 +32,7 @@ test.describe('Preflight', () => {
     await test.step('every service is up', async () => {
       const body = (await response.json()) as LabStatus;
       expect(['local', 'kafka']).toContain(body.transport);
-      expect(body.services.map((s) => s.service).sort()).toEqual([...SERVICES].sort());
+      expect(body.services.map((s) => s.service).sort((a, b) => a.localeCompare(b))).toEqual([...SERVICES].sort((a, b) => a.localeCompare(b)));
       for (const service of body.services) {
         expect.soft(service.status, `${service.service} status`).toBe('ok');
       }

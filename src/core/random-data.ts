@@ -7,7 +7,7 @@
  * TEST_SEED gives every test the same names and addresses. Only the unique part of an email changes,
  * so a repeated run never collides with an account that already exists.
  */
-import { randomUUID } from 'node:crypto';
+import { randomInt, randomUUID } from 'node:crypto';
 import { faker } from '@faker-js/faker';
 
 const MAX_SEED = 2 ** 31 - 1;
@@ -19,7 +19,7 @@ export function runSeed(): number {
 }
 
 /** A new run seed, used by playwright.config.ts when TEST_SEED is not set. */
-export const newRunSeed = (): number => 1 + Math.floor(Math.random() * (MAX_SEED - 1));
+export const newRunSeed = (): number => randomInt(1, MAX_SEED);
 
 /** Seeds the generator for one test, from the run seed and the test's own title. */
 export function seedForTest(testId: string): number {
