@@ -30,7 +30,7 @@ function readNumber(name: string, fallback: number): number {
   return value;
 }
 
-const baseUrl = read('BASE_URL', 'http://localhost:3000').replace(/\/+$/, '');
+const baseUrl = withoutTrailingSlashes(read('BASE_URL', 'http://localhost:3000'));
 
 // The lab gateway rejects any other Host header with 403, so fail early with a clear message.
 if (!ALLOWED_ORIGINS.includes(baseUrl)) {
@@ -46,3 +46,9 @@ export const config = {
   orderTimeoutMs: readNumber('ORDER_TIMEOUT_MS', 15_000),
   isCI: Boolean(process.env.CI),
 } as const;
+
+function withoutTrailingSlashes(url: string): string {
+  let end = url.length;
+  while (end > 0 && url[end - 1] === '/') end--;
+  return url.slice(0, end);
+}

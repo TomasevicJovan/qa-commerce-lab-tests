@@ -39,7 +39,7 @@ export class CategoriesMenu {
 
   /** Categories with counts on the left, e.g. ["Electronics 20", ...]. */
   async categoryEntries(): Promise<string[]> {
-    return (await this.categoryLinks.allTextContents()).map((t) => t.replace(/\s*›\s*$/, '').replace(/\s+/g, ' ').trim());
+    return (await this.categoryLinks.allTextContents()).map((t) => t.replace('›', '').replace(/\s+/g, ' ').trim());
   }
 
   async openCategory(name: string): Promise<void> {

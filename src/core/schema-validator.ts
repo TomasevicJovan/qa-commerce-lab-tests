@@ -25,7 +25,7 @@ async function load(): Promise<Ajv> {
   // OpenAPI 3.0 uses keywords Ajv does not know (example, nullable, ...). strict:false ignores them.
   ajv = new Ajv({ allErrors: true, strict: false });
   // Formats used by the lab spec, registered here to avoid an extra dependency.
-  ajv.addFormat('email', /^[^\s@]+@[^\s@]+\.[^\s@]+$/);
+  ajv.addFormat('email', isEmail);
   ajv.addFormat('date-time', (value: string) => !Number.isNaN(Date.parse(value)));
   ajv.addFormat('int64', { type: 'number', validate: (value: number) => Number.isInteger(value) });
   ajv.addSchema(spec as object, SPEC_KEY);
@@ -61,5 +61,19 @@ export async function expectMatchesContract(response: APIResponse, method: HttpM
   const errors = (validate.errors ?? []).map((e) => `${e.instancePath || '(root)'} ${e.message}`);
   expect(valid, `${method.toUpperCase()} ${path} ${response.status()} violates the contract:\n${errors.join('\n')}`).toBe(
     true,
+  );
+}
+
+/** name@domain.tld: one @, no spaces, a dot inside the domain. Written without a regex that could backtrack. */
+function isEmail(value: string): boolean {
+  const [local, domain, ...rest] = value.split('@');
+  return (
+    rest.length === 0 &&
+    !!local &&
+    !!domain &&
+    !/\s/.test(value) &&
+    domain.includes('.') &&
+    !domain.startsWith('.') &&
+    !domain.endsWith('.')
   );
 }

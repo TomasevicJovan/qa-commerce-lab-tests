@@ -72,10 +72,12 @@ jobs:
           cache: npm
 
       - name: Install dependencies
-        run: npm ci
+        # No package needs an install script; skipping them keeps a compromised dependency from running code here.
+        run: npm ci --ignore-scripts
 
       - name: Install Chromium
-        run: npx playwright install --with-deps chromium
+        # The locally installed Playwright (version from package-lock.json), not whatever npx would download.
+        run: ./node_modules/.bin/playwright install --with-deps chromium
 
       - name: Type check
         run: npm run typecheck
